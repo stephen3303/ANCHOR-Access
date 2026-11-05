@@ -140,7 +140,7 @@ Private Sub CreateTables(db As DAO.Database)
       "Criteria MEMO, CreatedOn DATETIME)"
     ExecDdl db, "CREATE TABLE tblBriefings (BriefingID AUTOINCREMENT PRIMARY KEY, Title TEXT(150) NOT NULL, PersonID LONG, " & _
       "PersonName TEXT(100), CreatedOn DATETIME, PeriodFrom DATETIME, PeriodTo DATETIME, Criteria MEMO, Notes MEMO)"
-    ExecDdl db, "CREATE TABLE tblBriefingItems (BriefingID LONG NOT NULL, MessageID LONG NOT NULL, SortOrder INTEGER, Note MEMO, " & _
+    ExecDdl db, "CREATE TABLE tblBriefingItems (BriefingID LONG NOT NULL, MessageID LONG NOT NULL, SortOrder INTEGER, ItemNote MEMO, " & _
       "CONSTRAINT pkBriefingItems PRIMARY KEY (BriefingID, MessageID))"
     ExecDdl db, "CREATE TABLE tblWatchNotes (NoteID AUTOINCREMENT PRIMARY KEY, NoteText MEMO NOT NULL, PersonID LONG, " & _
       "PersonName TEXT(100), CreatedOn DATETIME, IsOpen YESNO)"

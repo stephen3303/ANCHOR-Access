@@ -237,3 +237,39 @@ Public Function LifecycleNotice(ByVal lifecycle As String, ByVal replacedBy As V
             LifecycleNotice = "Corrected" & IIf(IsNull(relatesTo), "", ": corrects " & relatesTo) & "."
     End Select
 End Function
+
+' ---------------------------------------------------------------------------
+' Classification marking (demonstration only)
+' ---------------------------------------------------------------------------
+
+' ANCHOR carries UNCLASSIFIED, CUI, CONFIDENTIAL and SECRET, for
+' demonstration only (Stephen, 2026-11-05): every data file holds synthetic
+' content. Wherever a level above UNCLASSIFIED shows (a list row, the message
+' view, a print, a briefing, a draft), its demo annotation shows beside it.
+Public Const DEMO_MARKING_NOTE As String = "DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED."
+
+' True for a classification above UNCLASSIFIED (anything but UNCLASSIFIED or blank).
+Public Function IsMarkedAboveUnclass(ByVal classif As Variant) As Boolean
+    Dim c As String
+    c = UCase$(Trim$(Nz(classif, "")))
+    IsMarkedAboveUnclass = (Len(c) > 0 And c <> "UNCLASSIFIED" And c <> "UNCLASS")
+End Function
+
+' The marking line for a banner or a print: "UNCLASSIFIED", or for a higher
+' level "SECRET -- DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED."
+Public Function ClassificationMarking(ByVal classif As Variant) As String
+    Dim c As String
+    c = UCase$(Trim$(Nz(classif, "")))
+    If Len(c) = 0 Then c = "UNCLASSIFIED"
+    If IsMarkedAboveUnclass(c) Then
+        ClassificationMarking = c & " -- " & DEMO_MARKING_NOTE
+    Else
+        ClassificationMarking = c
+    End If
+End Function
+
+' The same as an SQL expression over column col, for list columns.
+Public Function ClassificationMarkingSql(Optional ByVal col As String = "m.Classification") As String
+    ClassificationMarkingSql = "IIf(Nz(" & col & ",'UNCLASSIFIED') In ('UNCLASSIFIED','UNCLASS',''),Nz(" & col & ",'UNCLASSIFIED')," & _
+        col & " & ' (demo marking)')"
+End Function
