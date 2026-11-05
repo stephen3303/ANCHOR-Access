@@ -2,7 +2,8 @@
 # script) straight from this folder: the kit's modules, forms and text-measure
 # adapter (kit\), and the app's own code, forms and help (src\).
 #
-#   build.ps1                     build a new front end with no data linked (UI work)
+#   build.ps1                     build a new front end with no data linked (UI work:
+#                                 every table in it is empty, and it says so at the end)
 #   build.ps1 -BackEnd <path>     build a new front end linked to that shared data file
 #   build.ps1 -UiOnly             rebuild code and forms inside the existing front end,
 #                                 keeping its links (also -FrontEndOnly)
@@ -134,3 +135,18 @@ finally {
 if ($dialogs) { Write-Host "Build stopped: Access showed the dialog(s) above."; exit 1 }
 if ($failed) { exit 1 }
 Write-Host "Built: $fe"
+# A front end with no data file opens with every table empty and no sign-in,
+# which looks like a data file with no rows. Say so, with the command to use.
+if (-not $UiOnly -and -not $BackEnd) {
+    Write-Host ""
+    Write-Host "NOTE: no data file is linked, so every table in this copy is empty (UI work only)."
+    $nextTo = Join-Path $OutDir 'ANCHOR_BE.accdb'
+    if (Test-Path $nextTo) {
+        Write-Host "To see the data in $nextTo, build linked to it:"
+        Write-Host "  .\build.ps1 -BackEnd `"$nextTo`""
+    } else {
+        Write-Host "To make a data file with the demo rows and link to it:"
+        Write-Host "  .\backend\new-backend.ps1"
+        Write-Host "  .\build.ps1 -BackEnd `"$nextTo`""
+    }
+}
