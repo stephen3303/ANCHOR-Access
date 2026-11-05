@@ -7,6 +7,7 @@
 #   -Empty                                   no demo traffic: tables and lookups only
 #
 # It never overwrites: if the file is there already it stops and changes nothing.
+# To add the demo rows to a data file that exists, use backend\seed-backend.ps1.
 # Then link a front end to it with  .\build.ps1 -BackEnd <file>.
 # Requires Microsoft Access (2016+ / Microsoft 365).
 param([string]$Path = '', [switch]$Empty)
@@ -17,42 +18,13 @@ if (-not $Path) {
     New-Item -ItemType Directory -Force (Join-Path $here 'build') | Out-Null
     $Path = Join-Path $here 'build\ANCHOR_BE.accdb'
 }
-$Path = [IO.Path]::GetFullPath($Path)
+# Relative to where the script was started, not to the process's folder.
+$Path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
 if (Test-Path $Path) { throw "There is already a file at $Path; nothing was changed." }
 
-# The builder runs inside a scratch database that is deleted afterwards.
-$scratch = Join-Path $env:TEMP 'ANCHOR_backend_builder.accdb'
-Remove-Item $scratch -ErrorAction SilentlyContinue
-
-. (Join-Path $here 'tools\AccessWatch.ps1')
-$acc = New-Object -ComObject Access.Application
-$watch = Start-AccessWatch $acc -TimeoutSec 300
-$failed = $false
-try {
-    $acc.Visible = $false
-    $acc.AutomationSecurity = 1
-    $acc.NewCurrentDatabase($scratch)
-    # LoadFromText expects Windows line endings.
-    $tmp = Join-Path $env:TEMP 'anchor_modBuildBackEnd.bas'
-    $text = [IO.File]::ReadAllText((Join-Path $backend 'modBuildBackEnd.bas')) -replace "`r?`n", "`r`n"
-    [IO.File]::WriteAllText($tmp, $text, [Text.Encoding]::ASCII)
-    $acc.LoadFromText(5, 'modBuildBackEnd', $tmp)
-    Remove-Item $tmp
-
-    $bad = Test-AccessCompiles $acc $watch
-    if ($bad) { Write-Host "Compile error: $bad"; throw 'compile failed' }
-
-    $a1 = [string]$Path
-    $a2 = if ($Empty) { '' } else { [string](Join-Path $backend 'seed') }
-    $result = $acc.Run('BuildBackEndAt', [ref]$a1, [ref]$a2)
-    Write-Host "BuildBackEndAt: $result"
-    if ($result -ne 'OK') { $failed = $true }
-}
-catch { $failed = $true; if (-not $watch.Killed) { throw } }
-finally {
-    $dialogs = Stop-AccessWatch $watch $acc
-    Remove-Item $scratch -ErrorAction SilentlyContinue
-}
-if ($dialogs) { Write-Host "Stopped: Access showed the dialog(s) above."; exit 1 }
-if ($failed) { exit 1 }
+. (Join-Path $backend 'BackEndBuilder.ps1')
+$seed = if ($Empty) { '' } else { Join-Path $backend 'seed' }
+$result = Invoke-BackEndBuilder -Entry 'BuildBackEndAt' -Arguments @($Path, $seed)
+Write-Host "BuildBackEndAt: $result"
+if ($result -ne 'OK') { exit 1 }
 Write-Host "Created: $Path"
