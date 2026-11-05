@@ -633,17 +633,22 @@ Public Function SubmitDraft(ByVal draftId As Long) As String
     If Len(why) > 0 Then SubmitDraft = why: Exit Function
     wf = WorkflowFor(d("msg_type"), d("originator"))
     resub = (d("status") = DS_RETURNED)
+    ' The new route's number is read before the transaction: a DLookup inside
+    ' it can't see the transaction's own update, so it would read the old
+    ' number and file the steps under the previous route (an empty chain on
+    ' the Route tab). The update names the number read, so a second submit
+    ' at the same moment changes nothing and is refused below.
+    routeNo = Nz(DLookup("RouteNo", "tblDrafts", "DraftID=" & draftId), 0) + 1
     On Error GoTo Fail
     Set ws = DBEngine.Workspaces(0)
     ws.BeginTrans: inTrans = True
-    n = KitExecute("UPDATE tblDrafts SET Status='" & DS_ROUTING & "', WorkflowID=" & wf & ", RouteNo=Nz(RouteNo,0)+1, UpdatedOn=Now() " & _
-        "WHERE DraftID=" & draftId & " AND DrafterID=" & SignedInPersonID() & " AND Status='" & d("status") & "'")
+    n = KitExecute("UPDATE tblDrafts SET Status='" & DS_ROUTING & "', WorkflowID=" & wf & ", RouteNo=" & routeNo & ", UpdatedOn=Now() " & _
+        "WHERE DraftID=" & draftId & " AND DrafterID=" & SignedInPersonID() & " AND Status='" & d("status") & "' AND Nz(RouteNo,0)=" & (routeNo - 1))
     If n <> 1 Then
         ws.Rollback: inTrans = False
         SubmitDraft = "The draft changed before it could be submitted. Pick it again to see it now."
         Exit Function
     End If
-    routeNo = DLookup("RouteNo", "tblDrafts", "DraftID=" & draftId)
     Set rs = CurrentDb.OpenRecordset("SELECT StepOrder, StepTitle, StepAction, PersonID FROM tblWorkflowSteps WHERE WorkflowID=" & wf & _
         " ORDER BY StepOrder", dbOpenSnapshot)
     Do While Not rs.EOF
