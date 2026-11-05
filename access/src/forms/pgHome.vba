@@ -89,7 +89,7 @@ Private Sub ShowTiles()
     n = OpenActionCount()
     SetTile "tileAction", n, IIf(n = 1, "message with an open action", "messages with an open action")
     n = StatusChangeCount()
-    SetTile "tileStatus", n, IIf(n = 1, "message no longer just current", "messages no longer just current")
+    SetTile "tileStatus", n, IIf(n = 1, "message changed status", "messages changed status")
     OwnAckProgress total, done
     Me.lblAckDone.Caption = IIf(total = 0, "", done & " of " & total & " complete")
 End Sub

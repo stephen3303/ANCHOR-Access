@@ -64,8 +64,11 @@ P = {
     "CLR_SIDEBAR":         ((27, 58, 92), (20, 23, 43)),
     "CLR_SIDEBAR_LINE":    ((52, 79, 108), (38, 42, 66)),
     "CLR_NAV_FG":          ((187, 196, 206), (205, 210, 224)),
-    "CLR_NAV_ACTIVE_BG":   ((61, 88, 121), (255, 255, 255)),
-    "CLR_NAV_ACTIVE_FG":   ((255, 255, 255), (10, 14, 30)),
+    # Dark palettes light the active item with a tinted bar and white text, as
+    # the light ones do: a white bar with dark text came out with light text on
+    # the reviewer's screen (the item looked blank), so the bar stays dark.
+    "CLR_NAV_ACTIVE_BG":   ((61, 88, 121), (48, 60, 104)),
+    "CLR_NAV_ACTIVE_FG":   ((255, 255, 255), (250, 250, 250)),
     "CLR_NAV_MUTED":       ((141, 156, 173), (130, 138, 160)),
     "CLR_BRAND":           ((27, 58, 92), (255, 255, 255)),
     "CLR_BLUE_300":        ((147, 197, 253), (147, 197, 253)),
@@ -163,7 +166,7 @@ PALETTES = [
         "CLR_INPUT_BORDER": (70, 70, 78), "CLR_MUTED_FG": (161, 161, 170),
         "CLR_PRIMARY": (130, 130, 140), "CLR_PRIMARY_SOFT": (40, 40, 46), "CLR_PRIMARY_LINE": (70, 70, 80),
         "CLR_LINK": (212, 212, 216), "CLR_OUT_BG": (24, 24, 27), "CLR_OUT_HOVER": (39, 39, 42),
-        "CLR_SIDEBAR": (18, 18, 20), "CLR_SIDEBAR_LINE": (40, 40, 44), "CLR_NAV_FG": (212, 212, 216),
+        "CLR_SIDEBAR": (18, 18, 20), "CLR_SIDEBAR_LINE": (40, 40, 44), "CLR_NAV_FG": (212, 212, 216), "CLR_NAV_ACTIVE_BG": (63, 63, 70),
         "CLR_NAV_MUTED": (130, 130, 140), "CLR_AVATAR": (113, 113, 122),
         "CLR_INFO_BG": (39, 39, 45), "CLR_INFO_FG": (212, 212, 216),
         "CLR_SECONDARY_BG": (39, 39, 42), "CLR_KPI1": (161, 161, 170), "CLR_KPI2": (212, 212, 216),

@@ -58,7 +58,7 @@ Public Sub Build_pgAudit()
 
     ' The filters.
     y = px(252): x = PAGE_PAD
-    SearchBox "txtSearch", x, y, px(168), "SearchFor", "Search resource, details...", px(28)
+    SearchBox "txtSearch", x, y, px(168), "SearchFor", "Search the trail", px(28)
     x = x + px(176)
     Set c = Cbo("cboAction", "", "", x, y, px(128), px(28), 2, "0;" & px(128)): Ev c, "AfterUpdate"
     c.ControlTipText = "Only this action"

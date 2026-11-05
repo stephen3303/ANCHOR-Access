@@ -150,8 +150,13 @@ Private Sub ShowSub(ByVal subId As Long)
     For Each c In Me.Controls
         Select Case True
             Case c.Name = "lblSubName", c.Name = "lblSubMeta", c.Name = "lblSubDesc", c.Name = "capCriteria", c.Name = "txtCriteria", _
-                    c.Name = "capMatches", c.Name = "lblMatches", c.Name = "btnRequest", c.Name = "btnPause", c.Name = "btnWithdraw"
+                    c.Name = "capMatches", c.Name = "lblMatches"
                 SetVisible c, isOpen
+            ' A mandatory subscription can't be requested, paused or
+            ' withdrawn: its buttons are hidden, not just greyed, and the
+            ' banner says why.
+            Case c.Name = "btnRequest", c.Name = "btnPause", c.Name = "btnWithdraw"
+                SetVisible c, isOpen And Not mand
         End Select
     Next
     If Not isOpen Then HideAlert Me, "alStatus"     ' ShowAlert (ShowStatus) shows it
@@ -174,8 +179,8 @@ Private Sub ShowStatus(ByVal mand As Boolean, ByVal delivery As String)
             If Not IsNull(rs!DecidedOn) Then by = IIf(Len(by) > 0, by, "an approver") & " on " & Format$(rs!DecidedOn, "dd mmm yyyy")
             Select Case m_status
                 Case "Pending Approval"
-                    msg = "You asked for it" & IIf(IsNull(rs!RequestedOn), "", " on " & Format$(rs!RequestedOn, "dd mmm yyyy")) & _
-                        ". It waits for your unit's Subscription Approver."
+                    msg = "Requested" & IIf(IsNull(rs!RequestedOn), "", " on " & Format$(rs!RequestedOn, "dd mmm yyyy")) & _
+                        ". Waiting for your unit's Subscription Approver."
                 Case "Denied"
                     msg = "Denied" & IIf(Len(by) > 0, " by " & by, "") & IIf(IsNull(rs!DecisionNote), ".", ": " & rs!DecisionNote & ".") & _
                         " You can request it again."
@@ -191,7 +196,7 @@ Private Sub ShowStatus(ByVal mand As Boolean, ByVal delivery As String)
         Case "Paused"
             ShowAlert Me, "alStatus", msg & "You don't receive it while it is paused. Resume starts it again (" & delivery & ").", "info", "Paused"
         Case "Pending Approval"
-            ShowAlert Me, "alStatus", msg & " Withdraw request takes it back.", "warning", "Pending Approval"
+            ShowAlert Me, "alStatus", msg, "warning", "Pending Approval"
         Case "Denied"
             ShowAlert Me, "alStatus", msg, "destructive", "Denied"
         Case Else

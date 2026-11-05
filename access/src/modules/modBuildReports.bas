@@ -33,8 +33,8 @@ End Sub
 
 ' "field|caption|width px|options[|sort field]"
 Private Function RptAckCols() As Variant
-    RptAckCols = Array("ref|Reference|132|b", "prec|Precedence|96|p|prec_rank", "ack_txt|Acknowledged|96|r|acked", _
-        "status|Status|104|p", "subject_txt|Subject|160|")
+    RptAckCols = Array("ref|Reference|152|b", "prec|Precedence|96|p|prec_rank", "ack_txt|Acknowledged|112|r|acked", _
+        "status|Status|96|p", "subject_txt|Subject|132|")
 End Function
 
 Private Function RptDetCols() As Variant

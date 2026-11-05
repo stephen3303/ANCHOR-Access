@@ -124,8 +124,8 @@ Private Function PalDark(ByVal c As Long) As Long
         Case 6044187: PalDark = 2823956      ' CLR_SIDEBAR
         Case 7098164: PalDark = 4336166      ' CLR_SIDEBAR_LINE
         Case 13550779: PalDark = 14734029    ' CLR_NAV_FG
-        Case 7952445: PalDark = 16777215     ' CLR_NAV_ACTIVE_BG
-        Case 16711422: PalDark = 1969674     ' CLR_NAV_ACTIVE_FG
+        Case 7952445: PalDark = 6831152      ' CLR_NAV_ACTIVE_BG
+        Case 16711422: PalDark = 16448250    ' CLR_NAV_ACTIVE_FG
         Case 11377805: PalDark = 10521218    ' CLR_NAV_MUTED
         Case 6109723: PalDark = 16777215     ' CLR_BRAND
         Case 15203548: PalDark = 2505232     ' CLR_SUCCESS_BG
@@ -272,8 +272,8 @@ Private Function PalGraphite(ByVal c As Long) As Long
         Case 6044187: PalGraphite = 1315346      ' CLR_SIDEBAR
         Case 7098164: PalGraphite = 2893864      ' CLR_SIDEBAR_LINE
         Case 13550779: PalGraphite = 14210260    ' CLR_NAV_FG
-        Case 7952445: PalGraphite = 16777215     ' CLR_NAV_ACTIVE_BG
-        Case 16711422: PalGraphite = 1969674     ' CLR_NAV_ACTIVE_FG
+        Case 7952445: PalGraphite = 4603711      ' CLR_NAV_ACTIVE_BG
+        Case 16711422: PalGraphite = 16448250    ' CLR_NAV_ACTIVE_FG
         Case 11377805: PalGraphite = 9208450     ' CLR_NAV_MUTED
         Case 6109723: PalGraphite = 16777215     ' CLR_BRAND
         Case 15203548: PalGraphite = 2505232     ' CLR_SUCCESS_BG
