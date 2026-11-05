@@ -2,11 +2,12 @@ Option Compare Database
 Option Explicit
 
 ' ANCHOR (Access edition) - the Admin page (/admin): subscription approvals,
-' mandatory alert rules, command access, users and their roles, and the
-' message types. Its code-behind is forms\pgAdmin.vba; its data modAdmin and
-' modSubscriptions (PendingSubsSql, ApproveSubscription, DenySubscription).
+' mandatory alert rules, command access, users and their roles, the
+' message types and mail ingestion. Its code-behind is forms\pgAdmin.vba; its
+' data modAdmin, modAnchorIngest and modSubscriptions (PendingSubsSql,
+' ApproveSubscription, DenySubscription).
 '
-' Three tabs, a Segmented control under the header (segTab):
+' Four tabs, a Segmented control under the header (segTab):
 '   Approvals & Access  the requests waiting for a decision (Approve, Deny),
 '                       the mandatory alert rules and the command access
 '                       groups, both read only (grpA)
@@ -16,8 +17,12 @@ Option Explicit
 '   Message types       the types by category with the picked one on the
 '                       right (Add, Save, Retire or Restore), and the
 '                       communications classes, read only (grpT)
+'   Mail ingest         the ingest log on the left with Check folder now and
+'                       Check mailbox now; the ingest settings, the timer and
+'                       the last run's counts on the right with Save (grpI)
 ' Each tab's controls are listed in a hidden label (GroupSince) that the page
-' shows and hides together. Users and Message types are for System Admins;
+' shows and hides together. Users, Message types and Mail ingest are for
+' System Admins;
 ' a Subscription Approver sees only the first tab, with no tabs shown.
 ' The web app's Routing & Release tab is the Routing page (btnRouting).
 '
@@ -62,6 +67,7 @@ Public Sub BuildAdminGrids()
     BuildGrid "subGridAdmUsers", UserCols(), AdmListW() - px(32)
     BuildGrid "subGridAdmTypes", TypeCols(), AdmListW() - px(32)
     BuildGrid "subGridAdmClasses", ClassCols(), AdmListW() - px(32)
+    BuildGrid "subGridAdmIngest", IngestCols(), AdmListW() - px(32), 2
 End Sub
 
 ' "field|caption|width px|options[|sort field]"
@@ -91,14 +97,20 @@ Private Function ClassCols() As Variant
     ClassCols = Array("ClassCode|Class|56|b", "ClassName|Name|200|", "Description|Description|200|m")
 End Function
 
+Private Function IngestCols() As Variant
+    IngestCols = Array("logged_txt|When|96|m|LoggedAt", "Feeder|Feeder|64|m", "Reference|Serial|136|bw", "result_txt|Result|88|p", _
+        "detail|Reason and item|160|")
+End Function
+
 ' The page: the header, the tabs, then each tab's controls (see the top).
 Public Sub Build_pgAdmin()
     Dim before As Object, c As Control
     NewForm "", 0, PAGE_W, PAGE_H
-    Ev F, "OnLoad"
+    Ev F, "OnLoad", "OnTimer"             ' OnTimer: Mail ingest's automatic checks while the page is open
     PageHeader "Admin", "Approve subscription requests, review the rules that make delivery mandatory, and manage ANCHOR users, " & _
-        "their roles and the message types.", PAGE_PAD
-    Segmented "segTab", "", PAGE_PAD, px(80), px(456), "access|Approvals & Access;users|Users;types|Message types", px(32), "TabChanged"
+        "their roles, the message types and mail ingestion.", PAGE_PAD
+    Segmented "segTab", "", PAGE_PAD, px(80), px(592), _
+        "access|Approvals & Access;users|Users;types|Message types;ingest|Mail ingest", px(32), "TabChanged"
     ' Admin: Routing (the drafting chains, release authority, command
     ' settings) is a page of its own; System Admins open it from here.
     Set c = Btn("btnRouting", "Routing", PAGE_W - PAGE_PAD - px(112), px(24), px(112), px(32), "outline")
@@ -113,6 +125,9 @@ Public Sub Build_pgAdmin()
     Set before = NamesNow()
     BuildTypesTab
     GroupSince before, "grpT"
+    Set before = NamesNow()
+    BuildIngestTab
+    GroupSince before, "grpI"
     ' The empty states are built hidden, so no group lists them: the page
     ' shows each with its tab.
     BuildEmptyStates
@@ -264,6 +279,59 @@ Private Sub BuildTypesTab()
     c.ControlTipText = "Stop offering this type for new traffic, or offer it again"
 End Sub
 
+' Mail ingest: the log on the left with the two checks over it; the
+' settings, the timer and the last run on the right.
+Private Sub BuildIngestTab()
+    Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, hw As Long, lw As Long, k As String
+    y = TAB_Y: lw = AdmListW(): h = PAGE_H - y - px(16)
+    Card "IngLog", "Ingest log", PAGE_PAD, y, lw, h, , 2, 2
+    Set c = Btn("btnIngMail", "Check mailbox now", PAGE_PAD + lw - px(16) - px(144), y + px(8), px(144), px(28), "outline"): Anchor c, 1, 0
+    c.ControlTipText = "Read the ingest mailbox through Outlook now (needs Outlook and a mail profile on this computer)"
+    Set c = Btn("btnIngFolder", "Check folder now", PAGE_PAD + lw - px(16) - px(144) - px(8) - px(136), y + px(8), px(136), px(28))
+    Anchor c, 1, 0
+    c.ControlTipText = "Ingest every .txt file in the drop folder now"
+    Set c = Lbl("lblIngNote", "Newest first. Double-click a row: a stored or repeated message opens; any other shows its whole reason.", _
+        PAGE_PAD + px(16), y + px(40), lw - px(32), px(18), 9, False, CLR_MUTED_FG)
+    Anchor c, 2, 0
+    GridHeaders "hdrIngest", IngestCols(), PAGE_PAD + px(16), y + px(66), w:=lw - px(32), sortSf:="sfIngest"
+    Set c = SubF("sfIngest", "subGridAdmIngest", PAGE_PAD + px(16), y + px(88), lw - px(32), h - px(104)): Anchor c, 2, 2
+
+    ' The settings: everything in the card keeps to the window's right edge
+    ' (AnchorBuilt); Save and Undo also keep to its bottom.
+    x = AdmDetailX(): fx = x + px(16): fw = DETAIL_W - px(32): hw = (fw - px(8)) \ 2
+    Card "IngSet", "Ingest settings", x, y, DETAIL_W, h, , 1, 2
+    k = BuiltNames()
+    FieldLbl "lblIngFolderCap", "DROP FOLDER", fx, y + px(44), fw
+    Set c = Txt("txtIngFolder", "", fx, y + px(62), fw, px(28))
+    c.ControlTipText = "A full path; leave it blank for the ingest folder beside the data file"
+    Lbl "lblIngFolderHint", "", fx, y + px(94), fw, px(32), 8, False, CLR_MUTED_FG
+    FieldLbl "lblIngMailboxCap", "MAILBOX", fx, y + px(134), hw
+    FieldLbl "lblIngMailFolderCap", "MAIL FOLDER", fx + hw + px(8), y + px(134), hw
+    Set c = Txt("txtIngMailbox", "", fx, y + px(152), hw, px(28))
+    c.ControlTipText = "The mailbox as Outlook's folder list names it, or its address"
+    Set c = Txt("txtIngMailFolder", "", fx + hw + px(8), y + px(152), hw, px(28))
+    c.ControlTipText = "The folder in the mailbox: Inbox, or a path such as Inbox\ANCHOR"
+    FieldLbl "lblIngClassCap", "CLASS GIVEN", fx, y + px(188), hw
+    FieldLbl "lblIngMaxCap", "HIGHEST MARKING", fx + hw + px(8), y + px(188), hw
+    Set c = Cbo("cboIngClass", "", "", fx, y + px(206), hw, px(28), 2, px(32) & ";" & px(220))
+    c.ControlTipText = "The communications class received messages take"
+    Set c = Cbo("cboIngMax", "", "UNCLASSIFIED;CUI;CONFIDENTIAL;SECRET", fx + hw + px(8), y + px(206), hw, px(28))
+    c.ControlTipText = "Text marked above this is refused; above SECRET always is (markings are demonstration only)"
+    FieldLbl "lblIngMinutesCap", "CHECK EVERY (MINUTES)", fx, y + px(242), fw
+    Set c = Txt("txtIngMinutes", "", fx, y + px(260), px(80), px(28))
+    c.ControlTipText = "Check the folder (and the mailbox, when one is set) this often while this page is open; 0 is off"
+    Lbl "lblIngTimer", "", fx + px(88), y + px(260), fw - px(88), px(28), 8, False, CLR_MUTED_FG
+    FieldLbl "lblIngLastCap", "LAST RUN", fx, y + px(300), fw
+    Lbl "lblIngLast", "", fx, y + px(318), fw, px(72), 9, False, CLR_FG
+    Set c = Lbl("lblIngSetEmpty", "", fx, y + px(120), fw, px(40), 9, False, CLR_MUTED_FG)
+    c.TextAlign = 2
+    AnchorBuilt k, 1, 0
+    Set c = Btn("btnIngSave", "Save", fx, y + h - px(46), px(88), px(30)): Anchor c, 1, 1
+    c.ControlTipText = "Save the ingest settings (Ctrl+S)"
+    Set c = Btn("btnIngUndo", "Undo changes", fx + px(96), y + h - px(46), px(120), px(30), "outline"): Anchor c, 1, 1
+    c.ControlTipText = "Put back what was last saved"
+End Sub
+
 ' The lists' empty states, over each list (built hidden).
 Private Sub BuildEmptyStates()
     Dim y As Long, lw As Long, x As Long
@@ -279,4 +347,6 @@ Private Sub BuildEmptyStates()
         "Pick someone from the Personnel file in the box above, then Add person."
     EmptyState "emptyTypes", PAGE_PAD + px(16), y + px(56), lw - px(32), "E8A5", "No message types", _
         "Add the types messages are sorted by, with Add type."
+    EmptyState "emptyIngest", PAGE_PAD + px(16), y + px(88), lw - px(32), "E715", "Nothing ingested yet", _
+        "Drop .txt messages in the drop folder, then Check folder now. Every attempt shows here, with why one was refused."
 End Sub

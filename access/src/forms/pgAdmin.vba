@@ -2,7 +2,7 @@ Option Compare Database
 Option Explicit
 
 ' Admin (see modBuildAdmin.Build_pgAdmin), for Subscription Approvers and
-' System Admins. Three tabs (segTab):
+' System Admins. Four tabs (segTab):
 '   Approvals & Access  the requests waiting for a decision, oldest first.
 '                       Approve makes the picked one Active; Deny asks why
 '                       (the requester sees the reason) and makes it Denied
@@ -16,23 +16,32 @@ Option Explicit
 '   Message types       System Admins: add a type, change its name, category
 '                       and description, retire or restore it; the
 '                       communications classes, read only.
+'   Mail ingest         System Admins: the ingest log, newest first, with
+'                       Check folder now and Check mailbox now
+'                       (modAnchorIngest); the drop folder, mailbox, class,
+'                       highest marking and timer settings with Save; the
+'                       last run's counts. While the page is open, a timer
+'                       (IngestTimerMinutes, 0 off) checks the folder, and the
+'                       mailbox when one is set; a problem it meets shows
+'                       under Last run, never in a message.
 ' A Subscription Approver who isn't a System Admin sees the first tab only,
 ' with no tabs shown. Every write checks the right in the data file at the
 ' moment of the write and is audited (modAdmin, modSubscriptions).
 '
-' Unsaved changes to a person or a type are kept until another is picked or
-' the page is left, when the admin is asked whether to save them (CanLeave).
+' Unsaved changes to a person, a type or the ingest settings are kept until
+' another is picked or the page is left, when the admin is asked whether to
+' save them (CanLeave).
 ' A change to the signed-in person's own roles shows in the sidebar at once.
 ' With no data file linked every list says so.
 '
-' Owner: the Admin page's build task. Depends on: modAdmin, modErrors,
-' modGlobals, modSignIn, modSubscriptions, modUI; the kit's modKitKeys,
-' modKitUI, modKitUtil, modMenu, modPersonnel.
+' Owner: the Admin page's build task. Depends on: modAdmin, modAnchorIngest,
+' modErrors, modGlobals, modMessages, modSignIn, modSubscriptions, modUI; the
+' kit's modKitKeys, modKitUI, modKitUtil, modMenu, modPersonnel.
 
 Private Const MSG_TITLE As String = "Admin"
 Private Const ROLE_SLOTS As Long = 8            ' chkRole1..8 (modBuildAdmin)
 
-Private m_tab As String         ' "access", "users" or "types"
+Private m_tab As String         ' "access", "users", "types" or "ingest"
 Private m_ok As Boolean         ' a data file is linked
 Private m_admin As Boolean      ' a System Admin (or a UI-only build): Users and Message types show
 Private m_pid As Long           ' the open person (0: none)
@@ -42,12 +51,16 @@ Private m_typeNew As Boolean    ' the type form holds a new type not saved yet
 Private m_typeSnap As String    ' the open type as loaded (TypeSnap)
 Private m_roleCount As Long     ' role slots in use
 Private m_roleCode(1 To 8) As String    ' the role code of each slot
+Private m_ingReady As Boolean   ' a System Admin, and the data file has the ingest log
+Private m_ingSnap As String     ' the ingest settings as loaded (IngSnap), to tell unsaved changes
+Private m_ingNote As String     ' a problem the last automatic check met, shown under Last run
 
 ' The help topic for the open tab (KitHelp).
 Public Property Get HelpTopic() As String
     Select Case m_tab
         Case "users": HelpTopic = "admin.users"
         Case "types": HelpTopic = "admin.types"
+        Case "ingest": HelpTopic = "admin.ingest"
         Case Else: HelpTopic = "admin"
     End Select
 End Property
@@ -73,8 +86,15 @@ Private Sub Form_Load()
             Me.sfTypes.Form.RecordSource = AdmTypesSql()
             Me.sfClasses.Form.RecordSource = AdmClassesSql()
             Me.cboTypeCat.RowSource = AdmTypeCategoriesSql()
+            m_ingReady = IngestReady()
+            If m_ingReady Then
+                Me.sfIngest.Form.RecordSource = IngestLogSql()
+                Me.cboIngClass.RowSource = "SELECT ClassCode, ClassName FROM tblMessageClasses ORDER BY ClassCode"
+                ShowIngestSettings
+            End If
         End If
     End If
+    ArmIngestTimer
     m_tab = "access"
     SetSegment Me, "segTab", "access"
     ShowGroup
@@ -89,6 +109,7 @@ Public Function CanLeave() As Boolean
     On Error GoTo Err_Handler
     CanLeave = LeavePerson()
     If CanLeave Then CanLeave = LeaveType()
+    If CanLeave Then CanLeave = LeaveIngest()
     Exit Function
 Err_Handler:
     HandleError "pgAdmin.CanLeave"
@@ -102,6 +123,7 @@ Public Function Shortcut(ByVal action As String) As Boolean
         Case SHORTCUT_SAVE
             If m_tab = "users" And m_pid <> 0 Then SaveUser
             If m_tab = "types" And (m_typeId <> 0 Or m_typeNew) Then SaveType
+            If m_tab = "ingest" And m_ingReady Then SaveIngest
             Shortcut = True
         Case SHORTCUT_NEW
             If m_tab = "types" And m_ok Then NewType: Shortcut = True
@@ -131,20 +153,20 @@ End Sub
 ' Show the open tab's controls and hide the others', then load its lists.
 Private Sub ShowGroup()
     Dim nm As Variant, grp As Variant, keys As Variant, i As Long
-    grp = Array("grpA", "grpU", "grpT")
-    keys = Array("access", "users", "types")
+    grp = Array("grpA", "grpU", "grpT", "grpI")
+    keys = Array("access", "users", "types", "ingest")
     ' Hide first, so the open tab's controls never sit over another's.
-    For i = 0 To 2
+    For i = 0 To 3
         If keys(i) <> m_tab Then
             For Each nm In Split(Me.Controls(grp(i)).Caption, ";")
                 If Len(nm) > 0 Then SetVisible Me.Controls(nm), False
             Next
         End If
     Next
-    For Each nm In Array("emptyQueue", "emptyRules", "emptyAccess", "emptyUsers", "emptyTypes")
+    For Each nm In Array("emptyQueue", "emptyRules", "emptyAccess", "emptyUsers", "emptyTypes", "emptyIngest")
         ShowEmpty Me, CStr(nm), False
     Next
-    For i = 0 To 2
+    For i = 0 To 3
         If keys(i) = m_tab Then
             For Each nm In Split(Me.Controls(grp(i)).Caption, ";")
                 If Len(nm) > 0 Then SetVisible Me.Controls(nm), True
@@ -154,6 +176,7 @@ Private Sub ShowGroup()
     Select Case m_tab
         Case "users": RefreshUsers m_pid
         Case "types": RefreshTypes m_typeId
+        Case "ingest": RefreshIngest
         Case Else
             RefreshQueue 0
             RefreshReadOnly Me.sfRules, "hdrRules", "emptyRules", "no alert rules"
@@ -213,6 +236,8 @@ Public Sub GridClick(ByVal grid As String, ByVal dbl As Boolean)
                 Exit Sub
             End If
             ShowType id
+        Case "sfIngest"
+            If dbl And id <> 0 Then ShowIngestRow id
     End Select
     Exit Sub
 Err_Handler:
@@ -765,4 +790,226 @@ Private Sub btnRetire_Click()
     Exit Sub
 Err_Handler:
     HandleError "pgAdmin.btnRetire_Click", m_typeId
+End Sub
+
+' ---------------------------------------------------------------------------
+' Mail ingest
+' ---------------------------------------------------------------------------
+
+' Reload the ingest log, or say why there is none; the settings card shows
+' the last run and the timer.
+Private Sub RefreshIngest()
+    Dim n As Long, nm As Variant, why As String
+    If Not m_ok Then
+        why = "This copy was built without the data file, so there is nothing to ingest into."
+        ShowEmpty Me, "emptyIngest", True, "No data file linked", why
+    ElseIf Not m_ingReady Then
+        why = "This data file was made before mail ingestion. Make it again (backend\new-backend.ps1) to add the ingest log."
+        ShowEmpty Me, "emptyIngest", True, "Mail ingest isn't set up", why
+    Else
+        Me.sfIngest.Form.Requery
+        n = ShownCount(Me.sfIngest)
+        ShowEmpty Me, "emptyIngest", n = 0
+    End If
+    Me.lblIngLogHdr.Caption = "Ingest log" & IIf(n > 0, " (" & n & IIf(n >= 500, " latest", "") & ")", "")
+    SetVisible Me.sfIngest, n > 0
+    ShowHeaders "hdrIngest", n > 0
+    SetVisible Me.lblIngNote, n > 0
+    SetEnabled Me.btnIngFolder, m_ingReady
+    SetEnabled Me.btnIngMail, m_ingReady
+    For Each nm In Array("lblIngFolderCap", "txtIngFolder", "lblIngFolderHint", "lblIngMailboxCap", "lblIngMailFolderCap", "txtIngMailbox", _
+            "txtIngMailFolder", "lblIngClassCap", "lblIngMaxCap", "cboIngClass", "cboIngMax", "lblIngMinutesCap", "txtIngMinutes", _
+            "lblIngTimer", "lblIngLastCap", "lblIngLast", "btnIngSave", "btnIngUndo")
+        SetVisible Me.Controls(nm), m_ingReady
+    Next
+    Me.lblIngSetEmpty.Caption = IIf(m_ingReady, "", "No settings to show: " & LCase$(Left$(why, 1)) & Mid$(why, 2))
+    SetVisible Me.lblIngSetEmpty, Not m_ingReady
+    If m_ingReady Then ShowIngestStatus
+End Sub
+
+' Load the saved ingest settings into the card.
+Private Sub ShowIngestSettings()
+    Dim dflt As String, folderName As String
+    Me.txtIngFolder = SettingText(INGEST_SET_FOLDER, "")
+    Me.txtIngMailbox = SettingText(INGEST_SET_MAILBOX, "")
+    folderName = SettingText(INGEST_SET_MAILFOLDER, "")
+    Me.txtIngMailFolder = IIf(Len(folderName) = 0, "Inbox", folderName)
+    Me.cboIngClass = IngestDefaultClass()
+    Me.cboIngMax = IngestMaxClassification()
+    Me.txtIngMinutes = CStr(IngestTimerMinutes())
+    dflt = IngestDefaultDropFolder()
+    Me.lblIngFolderHint.Caption = Replace("Blank: " & IIf(Len(dflt) > 0, dflt, "the ingest folder beside the data file") & _
+        ". Files move to its Ingested or Rejected folder; nothing is deleted.", "&", "&&")
+    m_ingSnap = IngSnap()
+    ShowIngestStatus
+End Sub
+
+' The timer line and the last run under the settings.
+Private Sub ShowIngestStatus()
+    Dim n As Long, s As String
+    n = IngestTimerMinutes()
+    If n > 0 Then
+        Me.lblIngTimer.Caption = "Checks every " & n & " " & Plural(n, "minute") & " while this page is open."
+    Else
+        Me.lblIngTimer.Caption = "0: no automatic checks."
+    End If
+    s = IngestLastRunText()
+    If Len(s) = 0 Then s = "No run yet."
+    If Len(m_ingNote) > 0 Then s = s & vbCrLf & "Automatic check: " & m_ingNote
+    Me.lblIngLast.Caption = Replace(s, "&", "&&")
+End Sub
+
+' The settings card as one text, to tell whether it changed.
+Private Function IngSnap() As String
+    IngSnap = Trim$(FieldText(Me, Me.txtIngFolder)) & "|" & Trim$(FieldText(Me, Me.txtIngMailbox)) & "|" & _
+        Trim$(FieldText(Me, Me.txtIngMailFolder)) & "|" & Trim$(FieldText(Me, Me.cboIngClass)) & "|" & _
+        Trim$(FieldText(Me, Me.cboIngMax)) & "|" & Trim$(FieldText(Me, Me.txtIngMinutes))
+End Function
+
+' True when the ingest settings may be left as they are: no changes, or the
+' admin saved or dropped them (dropped ones show as saved again).
+Private Function LeaveIngest() As Boolean
+    If Not m_ingReady Then LeaveIngest = True: Exit Function
+    If IngSnap() = m_ingSnap Then LeaveIngest = True: Exit Function
+    Select Case KitMsgBox("Save your changes to the ingest settings?", vbYesNoCancel + vbQuestion, MSG_TITLE)
+        Case vbYes: LeaveIngest = SaveIngest()
+        Case vbNo: ShowIngestSettings: LeaveIngest = True
+    End Select
+End Function
+
+' Save the ingest settings (modAnchorIngest.IngestSaveSettings, which checks
+' the admin right). False when nothing was saved: the admin is told why.
+Private Function SaveIngest() As Boolean
+    Dim problem As String
+    problem = IngestSaveSettings(FieldText(Me, Me.txtIngFolder), FieldText(Me, Me.txtIngMailbox), FieldText(Me, Me.txtIngMailFolder), _
+        FieldText(Me, Me.cboIngClass), FieldText(Me, Me.cboIngMax), FieldText(Me, Me.txtIngMinutes))
+    If Len(problem) > 0 Then
+        KitMsgBox problem & " Nothing was saved.", vbInformation, MSG_TITLE
+        Exit Function
+    End If
+    ShowIngestSettings
+    ArmIngestTimer
+    KitToast "Saved", "success"
+    SaveIngest = True
+End Function
+
+' Start, change or stop the automatic checks to match the saved setting.
+Private Sub ArmIngestTimer()
+    Dim n As Long
+    If m_ok And m_ingReady Then n = IngestTimerMinutes()
+    Me.TimerInterval = n * 60000
+End Sub
+
+Private Sub btnIngSave_Click()
+    On Error GoTo Err_Handler
+    SaveIngest
+    Exit Sub
+Err_Handler:
+    HandleError "pgAdmin.btnIngSave_Click"
+End Sub
+
+' Undo changes: show the settings as last saved.
+Private Sub btnIngUndo_Click()
+    On Error GoTo Err_Handler
+    ShowIngestSettings
+    Exit Sub
+Err_Handler:
+    HandleError "pgAdmin.btnIngUndo_Click"
+End Sub
+
+' Check folder now. Unsaved settings are saved or dropped first, so the
+' check uses what the card shows.
+Private Sub btnIngFolder_Click()
+    On Error GoTo Err_Handler
+    If Not LeaveIngest() Then Exit Sub
+    RunIngest "folder", False
+    Exit Sub
+Err_Handler:
+    HandleError "pgAdmin.btnIngFolder_Click"
+    DoCmd.Hourglass False
+    On Error Resume Next                    ' show the log as it is now; a second failure was reported
+    RefreshIngest
+End Sub
+
+' Check mailbox now (Outlook). Unsaved settings first, as Check folder now.
+Private Sub btnIngMail_Click()
+    On Error GoTo Err_Handler
+    If Not LeaveIngest() Then Exit Sub
+    RunIngest "mail", False
+    Exit Sub
+Err_Handler:
+    HandleError "pgAdmin.btnIngMail_Click"
+    DoCmd.Hourglass False
+    On Error Resume Next                    ' show the log as it is now; a second failure was reported
+    RefreshIngest
+End Sub
+
+' The automatic check (ArmIngestTimer): the folder, and the mailbox when one
+' is set. A failure stops the automatic checks until the page is opened
+' again, so the same fault isn't reported every few minutes.
+Private Sub Form_Timer()
+    On Error GoTo Err_Handler
+    If Me.TimerInterval = 0 Then Exit Sub   ' a tick left over from before
+    If Not (m_ok And m_ingReady) Then Me.TimerInterval = 0: Exit Sub
+    RunIngest "both", True
+    Exit Sub
+Err_Handler:
+    Me.TimerInterval = 0
+    HandleError "pgAdmin.Form_Timer"
+    DoCmd.Hourglass False
+End Sub
+
+' Run the drop folder check ("folder"), the mailbox check ("mail"), or both
+' ("both": the mailbox only when one is set). A problem (no folder, no
+' Outlook) is shown in a message, or for the timer under Last run; the run's
+' counts show in a toast and under Last run.
+' Errors: as IngestCheckFolder and IngestCheckMailbox (ERR_NOT_ALLOWED when
+'   the person is no longer a System Admin).
+Private Sub RunIngest(ByVal which As String, ByVal fromTimer As Boolean)
+    Dim summary As String, problem As String, msg As String
+    DoCmd.Hourglass True
+    If which <> "mail" Then
+        summary = IngestCheckFolder(problem)
+        If Len(problem) > 0 Then msg = problem
+    End If
+    If which = "mail" Or (which = "both" And Len(Trim$(SettingText(INGEST_SET_MAILBOX, ""))) > 0) Then
+        summary = IngestCheckMailbox(problem)
+        If Len(problem) > 0 Then msg = msg & IIf(Len(msg) > 0, " ", "") & problem
+    End If
+    DoCmd.Hourglass False
+    If fromTimer Then
+        m_ingNote = msg
+    Else
+        m_ingNote = ""
+        If Len(msg) > 0 Then
+            KitMsgBox msg, vbInformation, MSG_TITLE
+        ElseIf Len(summary) > 0 Then
+            KitToast ClipText(summary, 140), "success"
+        End If
+    End If
+    If m_tab = "ingest" Then RefreshIngest
+End Sub
+
+' Double-click on a log row: a stored or repeated message opens; any other
+' row shows its whole entry.
+Private Sub ShowIngestRow(ByVal id As Long)
+    Dim rs As DAO.Recordset, s As String, msgRow As Long, res As String
+    Set rs = CurrentDb.OpenRecordset("SELECT * FROM tblIngestLog WHERE IngestID=" & id, dbOpenSnapshot)
+    If rs.EOF Then rs.Close: Exit Sub
+    res = Nz(rs!Result, "")
+    msgRow = Nz(rs!MessageID, 0)
+    s = StrConv(res, vbProperCase) & IIf(Len(Nz(rs!Reference, "")) > 0, ": " & rs!Reference, "") & vbCrLf & vbCrLf & _
+        IIf(Len(Nz(rs!Reason, "")) > 0, rs!Reason & vbCrLf & vbCrLf, "") & _
+        "From: " & Nz(rs!Feeder, "") & IIf(Len(Nz(rs!FileOrItem, "")) > 0, ", " & rs!FileOrItem, "") & vbCrLf & _
+        IIf(Len(Nz(rs!EmailMessageId, "")) > 0, "Message-ID: " & rs!EmailMessageId & vbCrLf, "") & _
+        "SHA-256: " & Nz(rs!Sha256, "") & vbCrLf & _
+        "Logged " & Format$(rs!LoggedAt, "dd mmm yyyy hh:nn") & " by " & Nz(rs!UserName, "?") & " on " & Nz(rs!Workstation, "?")
+    rs.Close
+    If msgRow <> 0 And (res = INGEST_STORED Or res = INGEST_REPEAT) Then
+        If DCount("*", "tblMessages", "MessageID=" & msgRow) > 0 Then
+            OpenMessage msgRow              ' the shell asks about unsaved settings (CanLeave)
+            Exit Sub
+        End If
+    End If
+    KitMsgBox s, vbInformation, "Ingest log"
 End Sub

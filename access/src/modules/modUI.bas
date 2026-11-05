@@ -14,7 +14,8 @@ Option Explicit
 ' Audit results: Success, Warning, Failed. Admin and Profile: Granted
 ' success; Retired, Deactivated and Not granted secondary. Acknowledgement: Ack due,
 ' Acknowledged, Overdue. Classification: UNCLASSIFIED success, CUI info,
-' CONFIDENTIAL and SECRET destructive. Matching ignores case (Option Compare
+' CONFIDENTIAL and SECRET destructive. Mail ingest: Stored success, Repeat
+' secondary, Conflict destructive, Rejected warning. Matching ignores case (Option Compare
 ' Database), so ACTIVE and Active are one word.
 '
 ' At the end, the helpers every page shares: GridSelect (select a table's
@@ -62,6 +63,11 @@ Public Function StatusVariant(ByVal status As Variant) As String
         Case "In Routing": StatusVariant = "info"
         Case "Released", "Endorsed", "Holds role": StatusVariant = "success"
         Case "Drafting", "Withdrawn", "Not yet", "Inactive": StatusVariant = "secondary"
+        ' Mail ingest results (modAnchorIngest)
+        Case "Stored": StatusVariant = "success"
+        Case "Conflict": StatusVariant = "destructive"
+        Case "Rejected": StatusVariant = "warning"
+        Case "Repeat": StatusVariant = "secondary"
     End Select
     Exit Function
 Gone:

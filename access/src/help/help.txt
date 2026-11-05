@@ -205,7 +205,7 @@ ANCHOR's classifications are for demonstration only. A level above UNCLASSIFIED 
 How many of the period's messages there were by **precedence**, by **type** (named from the list of message types), by **classification** and by **lifecycle**, with each one's share of the period's traffic.
 
 === admin | Admin
-Approve or deny subscription requests, review the rules that make delivery mandatory and the command access groups, and, for System Admins, manage ANCHOR users and the message types. Subscription Approvers see **Approvals & Access**; System Admins also see **Users** and **Message types** in the switch at the top.
+Approve or deny subscription requests, review the rules that make delivery mandatory and the command access groups, and, for System Admins, manage ANCHOR users, the message types and mail ingestion. Subscription Approvers see **Approvals & Access**; System Admins also see **Users**, **Message types** and **Mail ingest** in the switch at the top.
 
 # Subscription approval queue
 Every request waiting for a decision, oldest first. A request isn't active until it is approved. Pick one, then:
@@ -240,6 +240,25 @@ Click **Add type**, type its **code** as messages name it (GENADMIN), its **name
 
 # Retiring a type
 **Retire** stops offering a type for new traffic, filters and drafting; messages of that type keep it. **Restore** offers it again. Types are never deleted. Every change is recorded in the audit trail.
+
+=== admin.ingest | Mail ingest
+For System Admins: bring received record traffic into Messages from a drop folder of .txt files or from a dedicated mailbox read through Outlook. This is a prototype.
+
+# Checking for traffic
+- **Check folder now** reads every .txt file in the drop folder (UTF-8 or ANSI). Each file then moves to the folder's **Ingested** or **Rejected** folder; a rejected one gets a .reason.txt file beside it saying why. Nothing is ever deleted.
+- **Check mailbox now** reads the mailbox's folder through Outlook: each mail's .txt attachments, or its text when it has none. Each mail then moves to an **Ingested** or **Rejected** folder under it. This needs Outlook and a mail profile on this computer; without them you are told so and nothing changes.
+- **Check every (minutes)** checks the folder, and the mailbox when one is set, that often while the Admin page is open. 0 turns it off. A problem an automatic check meets shows under **Last run**.
+
+# What happens to a message
+Each text is read as a naval message: the precedence and date-time group on line 1, FM, TO and INFO, BT, the classification line, then SUBJ/, MSGID/, REF/, NARR/, ACK/, POC/ and RMKS/. Every attempt is one row in the ingest log, newest first, and one entry in the audit trail.
+- **Stored**: added to Messages, with its sections and addressees (an address group is listed as a group), the class you set and a C2OIX id. ACK/ makes it need acknowledgement. NARR/ "THIS MSG CANCELS REF A" (or SUPERSEDES, CORRECTS, AMENDS) changes the message REF A names to Cancelled, Superseded or Amended.
+- **Repeat**: its serial is held with exactly the same text. Nothing is stored.
+- **Conflict**: its serial is held with different text. It is refused: each serial is stored once, and a correction comes as new traffic.
+- **Rejected**: the text can't be read (a bad date-time group, no SUBJ/, a set not closed with //), its MSGID type isn't a message type here (**unknown type**: add the type under **Message types** and send it again), or it is marked above the highest marking you set. Anything marked above SECRET is always refused.
+Double-click a row: a stored or repeated message opens; any other row shows its whole reason.
+
+# Settings
+**Drop folder** (blank: the ingest folder beside the data file), **Mailbox** (its name as Outlook shows it, or its address) and **Mail folder** (Inbox, or a path such as Inbox\ANCHOR), the **class** received messages take, the **highest marking** taken and the minutes between checks. Click **Save**; every change is recorded in the audit trail. Classification markings in ANCHOR are for demonstration only: a message marked above UNCLASSIFIED shows the demonstration notice beside its marking.
 
 === audit | Audit
 For System Admins: every audited action. Entries are never changed or removed: each one carries the hash of the entry before it, so a changed, reordered or removed entry breaks the chain from that entry on.

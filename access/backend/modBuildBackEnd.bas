@@ -167,6 +167,7 @@ Private Sub CreateTables(db As DAO.Database)
       "context LONGTEXT, page TEXT(32), active_form TEXT(64), active_control TEXT(64), username TEXT(150), " & _
       "windows_user TEXT(64), computer TEXT(64), fe_build TEXT(32), access_version TEXT(32))"
     CreateDraftingTables db         ' drafting and release (the block at the end)
+    CreateIngestTables db           ' mail ingestion (the last block)
 End Sub
 
 Private Sub CreateIndexes(db As DAO.Database)
@@ -188,6 +189,7 @@ Private Sub CreateIndexes(db As DAO.Database)
     ExecDdl db, "CREATE INDEX ixSavedSearchPerson ON tblSavedSearches (PersonID)"
     ExecDdl db, "CREATE INDEX ixErrorLogged ON error_log (logged_at)"
     CreateDraftingIndexes db
+    CreateIngestIndexes db
 End Sub
 
 ' Relationship nm: ct.fk refers to pt.pk, enforced, deleting the children
@@ -234,6 +236,7 @@ Private Sub SeedLookups(db As DAO.Database)
     AddAccess db, "Comms Division", "Role", 9, "Unit traffic, comms admin"
     AddAccess db, "SUBRON Staff", "Group", 38, "Squadron traffic"
     SeedDraftingLookups db
+    SeedIngestSettings db
 End Sub
 
 ' The message types (administrative, operational, safety, and the web app's
@@ -551,4 +554,40 @@ Private Sub AddTemplate(db As DAO.Database, ByVal nm As String, ByVal desc As St
         ExecDdl db, "INSERT INTO tblTemplateFields (TemplateID, FieldName, SortOrder, IsRequired, MaxLen, DefaultText, Hint) VALUES (" & _
             id & ",'" & p(0) & "'," & (i + 1) & ",True,0,'','" & p(1) & "')"
     Next
+End Sub
+
+' ---------------------------------------------------------------------------
+' Mail ingestion (a prototype, Stephen 2026-11-05)
+' ---------------------------------------------------------------------------
+' Received traffic read from a dedicated mailbox (Outlook) or a drop folder
+' of .txt files by the front end's modAnchorIngest. tblIngestLog has one row
+' per attempt, whatever its result (stored, repeat, conflict, rejected), and
+' the app only appends to it; MessageID names the message an attempt stored
+' or matched. The raw text of a stored message is tblMessages.RawText (with
+' its SHA-256 in Sha256), so there is no separate raw-text table; refused
+' text is kept by the feeders in a Rejected folder, never in the data file.
+' The settings are tblSettings rows (blank ones Null, so the app's defaults
+' apply); IngestLastRun, the last run's counts, is added by the first run.
+
+Private Sub CreateIngestTables(db As DAO.Database)
+    ExecDdl db, "CREATE TABLE tblIngestLog (IngestID AUTOINCREMENT PRIMARY KEY, LoggedAt DATETIME NOT NULL, Workstation TEXT(64), " & _
+      "UserName TEXT(100), Feeder TEXT(20) NOT NULL, EmailMessageId TEXT(255), Reference TEXT(60), Sha256 TEXT(64), " & _
+      "Result TEXT(10) NOT NULL, Reason TEXT(255), FileOrItem TEXT(255), MessageID LONG)"
+End Sub
+
+Private Sub CreateIngestIndexes(db As DAO.Database)
+    ExecDdl db, "CREATE INDEX ixIngestAt ON tblIngestLog (LoggedAt)"
+    ExecDdl db, "CREATE INDEX ixIngestRef ON tblIngestLog (Reference)"
+End Sub
+
+' The drop folder blank (the "ingest" folder beside the data file), no
+' mailbox yet, its Inbox, class A, up to SECRET (demonstration markings), no
+' automatic checks.
+Private Sub SeedIngestSettings(db As DAO.Database)
+    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestDropFolder',Null,'Mail ingest: the drop folder (blank: ingest beside the data file)')"
+    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestMailbox',Null,'Mail ingest: the mailbox Outlook reads')"
+    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestFolder','Inbox','Mail ingest: the folder in that mailbox')"
+    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestDefaultClass','A','Mail ingest: the class received messages take')"
+    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestMaxClassification','SECRET','Mail ingest: the highest marking taken')"
+    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestTimerMinutes','0','Mail ingest: minutes between checks while Admin is open (0 off)')"
 End Sub
