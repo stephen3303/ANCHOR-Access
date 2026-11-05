@@ -10,6 +10,17 @@ Option Explicit
 '   BuildBackEndAt(path, seed)    run by backend\new-backend.ps1; asks nothing,
 '                                 never overwrites, and returns "OK" or what
 '                                 failed. seed "" makes an empty data file.
+'   SeedBackEndAt(path, seed, personnel)
+'                                 run by backend\seed-backend.ps1: adds the
+'                                 lookup and demo rows an EXISTING data file
+'                                 is missing (and, with a demo Personnel file,
+'                                 ANCHOR profiles for its made-up people).
+'                                 Running it again adds nothing.
+'
+' Seeding is idempotent: every seeded row is matched on its natural key
+' (SeedKeyFields for the seed files, the code or name for the lookups) and
+' added only when the data file has no such row, so a row an admin changed
+' or added is never touched and nothing is ever deleted.
 '
 ' People: names, accounts and email live once in the kit's shared Personnel file
 ' (kit_person). This file keeps only each person's ANCHOR profile (billet, unit,
@@ -35,7 +46,19 @@ Option Explicit
 ' the kit's zz_help. error_log is the kit's error log (modErrors).
 '
 ' The schema version (tblSettings SchemaVersion) is the app's DATA_VERSION
-' (modSignIn). A change here bumps both and adds a step to modSignIn.UpgradeData.
+' (modSignIn). A change here bumps both (SCHEMA_VERSION below) and adds a step
+' to modSignIn.UpgradeData.
+
+Private Const SCHEMA_VERSION As String = "1"    ' tblSettings SchemaVersion; modSignIn.DATA_VERSION
+
+' The kit's demo Personnel file (modPersonnel.CreateDemoPersonnelFile): its
+' made-up people all have this command, and its key file sits beside it.
+' Both must match the kit's DEMO_COMMAND and PERSONNEL_KEY_FILE.
+Private Const DEMO_PERSONNEL_COMMAND As String = "DEMO DATA (made-up people)"
+Private Const PERSONNEL_KEY_FILE_NAME As String = "Personnel.key"
+
+' The rows this run added, by table (Added, AddedSummary).
+Private m_addedRows As Object
 
 ' Make the data file by hand from any Access database.
 Public Sub BuildBackEnd()
@@ -58,6 +81,7 @@ Public Function BuildBackEndAt(ByVal p As String, ByVal seed As String) As Strin
     Dim db As DAO.Database, stepName As String
     On Error GoTo Fail
     If Len(Dir(p)) > 0 Then Err.Raise 58, , "There is already a file at " & p & "; nothing was changed."
+    Set m_addedRows = Nothing
     Set db = DBEngine.CreateDatabase(p, dbLangGeneral, dbVersion120)
     stepName = "tables": CreateTables db
     stepName = "indexes": CreateIndexes db
@@ -76,8 +100,125 @@ Fail:
     End If
 End Function
 
+' Script entry point: add the lookup and demo rows the EXISTING data file at
+' p is missing, so a data file made empty (new-backend.ps1 -Empty), or one
+' made before a seed row existed, shows a populated app.
+'   p          full path of an ANCHOR data file of schema SCHEMA_VERSION
+'   seed       the seed folder (backend\seed)
+'   personnel  "" or the full path of a DEMO Personnel file (the kit's
+'              Start with demo personnel): its made-up people get ANCHOR
+'              profiles and roles, the routing steps nobody holds, and
+'              release authority (SeedDemoPeople)
+' The data file is opened exclusively, so no ANCHOR copy can be writing to it,
+' and every row goes in one transaction: all of it or none. Rows already
+' there (matched on their natural key) are skipped, so a second run adds
+' nothing and reports "OK: 0 rows added".
+' Returns "OK: <n> rows added (<count by table>)", or "ERROR during <step>:
+' <reason>" with nothing changed.
+Public Function SeedBackEndAt(ByVal p As String, ByVal seed As String, ByVal personnel As String) As String
+    Dim ws As DAO.Workspace, db As DAO.Database, stepName As String, inTrans As Boolean
+    Dim errNo As Long, errText As String
+    On Error GoTo Fail
+    stepName = "open"
+    If Len(Dir(p)) = 0 Then Err.Raise 53, , "There is no data file at " & p & "."
+    If Len(seed) = 0 Then Err.Raise 5, , "Name the seed folder (backend\seed)."
+    Set m_addedRows = Nothing
+    Set ws = DBEngine.Workspaces(0)
+    Set db = ws.OpenDatabase(p, True, False)    ' exclusive: no front end has it open
+    stepName = "check"
+    CheckDataFile db
+    ws.BeginTrans: inTrans = True
+    stepName = "lookups": SeedLookups db
+    stepName = "seed rows": SeedDemo db, seed
+    If Len(personnel) > 0 Then stepName = "demo people": SeedDemoPeople db, personnel
+    ws.CommitTrans: inTrans = False
+    db.Close: Set db = Nothing
+    SeedBackEndAt = "OK: " & AddedSummary()
+    Exit Function
+Fail:
+    errNo = Err.Number: errText = Err.Description   ' Rollback and Close reset Err
+    On Error Resume Next
+    If inTrans Then ws.Rollback
+    If Not db Is Nothing Then db.Close
+    On Error GoTo 0
+    ' 3045, 3356, 3734: the file is open somewhere (a linked front end).
+    If errNo = 3045 Or errNo = 3356 Or errNo = 3734 Then errText = errText & " Close every ANCHOR copy that has it open, then run it again."
+    SeedBackEndAt = "ERROR during " & stepName & ": " & errText & " Nothing was changed."
+End Function
+
+' Refuse a file that is not an ANCHOR data file of this schema version, so
+' the seed never writes rows into a file whose tables differ.
+Private Sub CheckDataFile(db As DAO.Database)
+    Dim rs As DAO.Recordset, v As String
+    If Not (FileHasTable(db, "tblSettings") And FileHasTable(db, "tblMessages")) Then
+        Err.Raise 5, , "That file is not an ANCHOR data file."
+    End If
+    Set rs = db.OpenRecordset("SELECT SettingValue FROM tblSettings WHERE SettingKey='SchemaVersion'", dbOpenSnapshot)
+    If Not rs.EOF Then v = Nz(rs!SettingValue, "")
+    rs.Close
+    If v <> SCHEMA_VERSION Then
+        Err.Raise 5, , "That data file is schema version " & IIf(Len(v) = 0, "(none)", v) & _
+            "; this seed is for version " & SCHEMA_VERSION & "."
+    End If
+End Sub
+
+Private Function FileHasTable(db As DAO.Database, ByVal nm As String) As Boolean
+    Dim td As DAO.TableDef
+    For Each td In db.TableDefs
+        If StrComp(td.Name, nm, vbTextCompare) = 0 Then FileHasTable = True: Exit Function
+    Next
+End Function
+
 Private Sub ExecDdl(db As DAO.Database, ByVal sql As String)
     db.Execute sql, dbFailOnError
+End Sub
+
+' A text value as an SQL literal, its quotes doubled.
+Private Function SqlText(ByVal s As String) As String
+    SqlText = "'" & Replace(s, "'", "''") & "'"
+End Function
+
+' How many rows of tbl match the SQL condition crit ("" for all). A
+' recordset, not DCount: a domain function reads outside the transaction
+' SeedBackEndAt runs in, so it can't see the rows this run added.
+Private Function RowCount(db As DAO.Database, ByVal tbl As String, ByVal crit As String) As Long
+    Dim rs As DAO.Recordset
+    Set rs = db.OpenRecordset("SELECT Count(*) FROM " & tbl & IIf(Len(crit) > 0, " WHERE " & crit, ""), dbOpenSnapshot)
+    RowCount = rs.Fields(0).Value
+    rs.Close
+End Function
+
+' Whether tbl has a row whose text field fld is textValue.
+Private Function RowExists(db As DAO.Database, ByVal tbl As String, ByVal fld As String, ByVal textValue As String) As Boolean
+    RowExists = RowCount(db, tbl, fld & "=" & SqlText(textValue)) > 0
+End Function
+
+' Count n rows added to (or filled in) tbl, for the summary SeedBackEndAt returns.
+Private Sub Added(ByVal tbl As String, Optional ByVal n As Long = 1)
+    If m_addedRows Is Nothing Then Set m_addedRows = CreateObject("Scripting.Dictionary")
+    If n = 0 Then Exit Sub
+    m_addedRows(tbl) = m_addedRows(tbl) + n     ' a new key starts Empty, which adds as 0
+End Sub
+
+' "12 rows added (tblMessages 4, tblMessageSections 8)", or "0 rows added".
+Private Function AddedSummary() As String
+    Dim k As Variant, total As Long, parts As String
+    If Not m_addedRows Is Nothing Then
+        For Each k In m_addedRows.Keys
+            total = total + m_addedRows(k)
+            parts = parts & ", " & k & " " & m_addedRows(k)
+        Next
+    End If
+    AddedSummary = total & " rows added" & IIf(total > 0, " (" & Mid$(parts, 3) & ")", "")
+End Function
+
+' Add the setting key with value settingValue (Null for blank) unless it is
+' there; a setting already there keeps its value.
+Private Sub AddSetting(db As DAO.Database, ByVal key As String, ByVal settingValue As Variant, ByVal desc As String)
+    If RowExists(db, "tblSettings", "SettingKey", key) Then Exit Sub
+    ExecDdl db, "INSERT INTO tblSettings (SettingKey, SettingValue, Description) VALUES (" & SqlText(key) & "," & _
+        IIf(IsNull(settingValue), "Null", SqlText(Nz(settingValue, ""))) & "," & SqlText(desc) & ")"
+    Added "tblSettings"
 End Sub
 
 Private Sub CreateTables(db As DAO.Database)
@@ -220,11 +361,12 @@ Private Sub CreateRelationships(db As DAO.Database)
     CreateDraftingRelationships db
 End Sub
 
-' The lists every data file has, demo traffic or not.
+' The lists every data file has, demo traffic or not. Each row is added only
+' when missing, so SeedBackEndAt can run this on a data file in use.
 Private Sub SeedLookups(db As DAO.Database)
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('SchemaVersion','1','Back-end schema version')"
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('CommandSource','COMSUBLANT','The source code of this command''s own traffic')"
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('CommandName','Commander, Submarine Force Atlantic','This command''s name')"
+    AddSetting db, "SchemaVersion", SCHEMA_VERSION, "Back-end schema version"
+    AddSetting db, "CommandSource", "COMSUBLANT", "The source code of this command's own traffic"
+    AddSetting db, "CommandName", "Commander, Submarine Force Atlantic", "This command's name"
     SeedMessageTypes db
     ' Business rules that make delivery mandatory (the web app's Admin page).
     AddRule db, 1, "Precedence", "FLASH, IMMEDIATE", "All addressed units", 2, "Department Head, then XO"
@@ -269,8 +411,11 @@ Private Sub SeedMessageTypes(db As DAO.Database)
             "ALL SHIPS PRESENT|All ships present message|Special|Broadcast to all ships in a designated area", _
             "RED CROSS|Red Cross message|Special|Humanitarian and Red Cross communications")
         p = Split(t, "|"): i = i + 1
-        ExecDdl db, "INSERT INTO tblMessageTypes (TypeCode, TypeName, Category, Description, IsActive, SortOrder) VALUES ('" & _
-            p(0) & "','" & p(1) & "','" & p(2) & "','" & p(3) & "',True," & i & ")"
+        If Not RowExists(db, "tblMessageTypes", "TypeCode", p(0)) Then
+            ExecDdl db, "INSERT INTO tblMessageTypes (TypeCode, TypeName, Category, Description, IsActive, SortOrder) VALUES (" & _
+                SqlText(p(0)) & "," & SqlText(p(1)) & "," & SqlText(p(2)) & "," & SqlText(p(3)) & ",True," & i & ")"
+            Added "tblMessageTypes"
+        End If
     Next
     For Each t In Array("A|Official Department of Defense|Official DoD messages (the largest volume)", _
             "B|Other U.S. Government|Other U.S. Government departments and agencies", _
@@ -278,18 +423,27 @@ Private Sub SeedMessageTypes(db As DAO.Database)
             "D|Private, toll|Private messages for which the Navy collects tolls (press)", _
             "E|Personal|Personal messages to and from naval personnel, free over Navy circuits")
         p = Split(t, "|")
-        ExecDdl db, "INSERT INTO tblMessageClasses (ClassCode, ClassName, Description) VALUES ('" & p(0) & "','" & p(1) & "','" & p(2) & "')"
+        If Not RowExists(db, "tblMessageClasses", "ClassCode", p(0)) Then
+            ExecDdl db, "INSERT INTO tblMessageClasses (ClassCode, ClassName, Description) VALUES (" & SqlText(p(0)) & "," & _
+                SqlText(p(1)) & "," & SqlText(p(2)) & ")"
+            Added "tblMessageClasses"
+        End If
     Next
 End Sub
 
 Private Sub AddRule(db As DAO.Database, ByVal ord As Long, ByVal kind As String, ByVal match As String, ByVal aud As String, _
         ByVal hrs As Long, ByVal esc As String)
-    ExecDdl db, "INSERT INTO tblAlertRules (RuleKind, MatchText, Audience, AckHours, Escalate, IsActive, SortOrder) VALUES ('" & _
-        kind & "','" & match & "','" & aud & "'," & hrs & ",'" & esc & "',True," & ord & ")"
+    If RowExists(db, "tblAlertRules", "MatchText", match) Then Exit Sub
+    ExecDdl db, "INSERT INTO tblAlertRules (RuleKind, MatchText, Audience, AckHours, Escalate, IsActive, SortOrder) VALUES (" & _
+        SqlText(kind) & "," & SqlText(match) & "," & SqlText(aud) & "," & hrs & "," & SqlText(esc) & ",True," & ord & ")"
+    Added "tblAlertRules"
 End Sub
 
 Private Sub AddAccess(db As DAO.Database, ByVal nm As String, ByVal basis As String, ByVal n As Long, ByVal scope As String)
-    ExecDdl db, "INSERT INTO tblAccessGroups (GroupName, Basis, Members, Scope) VALUES ('" & nm & "','" & basis & "'," & n & ",'" & scope & "')"
+    If RowExists(db, "tblAccessGroups", "GroupName", nm) Then Exit Sub
+    ExecDdl db, "INSERT INTO tblAccessGroups (GroupName, Basis, Members, Scope) VALUES (" & SqlText(nm) & "," & SqlText(basis) & "," & _
+        n & "," & SqlText(scope) & ")"
+    Added "tblAccessGroups"
 End Sub
 
 ' ---------------------------------------------------------------------------
@@ -297,7 +451,9 @@ End Sub
 ' ---------------------------------------------------------------------------
 
 ' Parents before children: a child's MsgKey, SubName or GroupName column is
-' looked up to its parent's id.
+' looked up to its parent's id. The audit rows go in only while tblAudit is
+' empty: it is an append-only, hash-chained trail, and back-dated demo rows
+' added after real activity would sit out of order at the end of the chain.
 Private Sub SeedDemo(db As DAO.Database, ByVal folder As String)
     Dim t As Variant
     If Right$(folder, 1) <> "\" Then folder = folder & "\"
@@ -305,54 +461,138 @@ Private Sub SeedDemo(db As DAO.Database, ByVal folder As String)
     For Each t In Array("tblRoles", "tblMessages", "tblMessageSections", "tblAttachments", "tblAddressees", "tblAckReceipts", _
             "tblGroupMembers", "tblSubscriptions", "tblPersonSubs", "tblAudit", "tblWatchNotes", "tblOngoingTopics", _
             "tblTurnoverChecklist")
-        LoadTsv db, CStr(t), folder & t & ".tsv"
+        If t <> "tblAudit" Or RowCount(db, "tblAudit", "") = 0 Then LoadTsv db, CStr(t), folder & t & ".tsv"
     Next
     SeedDraftingDemo db
 End Sub
 
-' Add the rows of one seed file to table tbl (see tools\make_seed.py for the format).
+' The fields that identify a seeded row of tbl, after a parent's name is
+' turned into its id (MsgKey to MessageID, SubName to SubID, GroupName to
+' GroupID). A seed row whose key the table already has is skipped.
+Private Function SeedKeyFields(ByVal tbl As String) As String
+    Select Case tbl
+        Case "tblRoles": SeedKeyFields = "RoleCode"
+        Case "tblMessages": SeedKeyFields = "MsgKey"
+        Case "tblMessageSections": SeedKeyFields = "MessageID,SortOrder"
+        Case "tblAttachments": SeedKeyFields = "MessageID,FileName"
+        Case "tblAddressees": SeedKeyFields = "MessageID,AddrName,AddrRole"
+        Case "tblAckReceipts": SeedKeyFields = "MessageID,CommandName,ReceivedOn"
+        Case "tblGroupMembers": SeedKeyFields = "GroupID,CommandName"
+        Case "tblSubscriptions": SeedKeyFields = "SubName"
+        Case "tblPersonSubs": SeedKeyFields = "SubID,PersonName"
+        Case "tblAudit": SeedKeyFields = "LoggedAt,UserName,Action,Resource"
+        Case "tblWatchNotes": SeedKeyFields = "NoteText"
+        Case "tblOngoingTopics": SeedKeyFields = "Topic"
+        Case "tblTurnoverChecklist": SeedKeyFields = "ItemText"
+        Case Else: Err.Raise 5, , "No seed key is set for " & tbl & " (modBuildBackEnd.SeedKeyFields)."
+    End Select
+End Function
+
+' Add the rows of one seed file to table tbl (see tools\make_seed.py for the
+' format) that the table doesn't have yet (SeedKeyFields).
 Private Sub LoadTsv(db As DAO.Database, ByVal tbl As String, ByVal path As String)
-    Dim lines() As String, cols() As String, vals() As String, i As Long, j As Long, rs As DAO.Recordset
-    Dim fld As String, v As Variant
+    Dim lines() As String, cols() As String, vals() As String, keyFlds() As String, i As Long
+    Dim rs As DAO.Recordset, have As Object, seedRow As Object, k As String, fld As Variant
     lines = Split(Replace(ReadUtf8(path), vbCr, ""), vbLf)
     cols = Split(lines(0), vbTab)
+    keyFlds = Split(SeedKeyFields(tbl), ",")
+    Set have = ExistingKeys(db, tbl, keyFlds)
     Set rs = db.OpenRecordset(tbl, dbOpenDynaset)
     For i = 1 To UBound(lines)
         If Len(lines(i)) > 0 Then
             vals = Split(lines(i), vbTab)
             If UBound(vals) <> UBound(cols) Then Err.Raise 5, , tbl & " row " & i & " has " & (UBound(vals) + 1) & " values, not " & (UBound(cols) + 1)
-            rs.AddNew
-            For j = 0 To UBound(cols)
-                fld = cols(j)
-                If Len(vals(j)) = 0 Then
-                    v = Null
-                Else
-                    v = Unescape(vals(j))
-                End If
-                Select Case fld
-                    Case "MsgKey"
-                        If tbl = "tblMessages" Then rs!MsgKey = v Else rs!MessageID = ParentID(db, "tblMessages", "MessageID", "MsgKey", v)
-                    Case "SubName"
-                        If tbl = "tblSubscriptions" Then rs!SubName = v Else rs!SubID = ParentID(db, "tblSubscriptions", "SubID", "SubName", v)
-                    Case "GroupName"
-                        rs!GroupID = GroupIdFor(db, CStr(v))
-                    Case Else
-                        If IsNull(v) Then
-                            rs.Fields(fld).Value = Null
-                        ElseIf rs.Fields(fld).Type = dbDate Then
-                            rs.Fields(fld).Value = IsoDate(CStr(v))
-                        ElseIf rs.Fields(fld).Type = dbBoolean Then
-                            rs.Fields(fld).Value = (v = "1")
-                        Else
-                            rs.Fields(fld).Value = v
-                        End If
-                End Select
-            Next
-            rs.Update
+            Set seedRow = SeedRowValues(db, rs, tbl, cols, vals)
+            k = DictKey(seedRow, keyFlds)
+            If Not have.Exists(k) Then
+                have.Add k, True                ' a repeated row in the file goes in once
+                rs.AddNew
+                For Each fld In seedRow.Keys
+                    rs.Fields(CStr(fld)).Value = seedRow(fld)
+                Next
+                rs.Update
+                Added tbl
+            End If
         End If
     Next
     rs.Close
 End Sub
+
+' One seed row as field name -> value, ready for tbl: an empty value is Null,
+' a parent's name becomes its id, and dates and yes/no values take the
+' field's type (rs is tbl, open).
+Private Function SeedRowValues(db As DAO.Database, rs As DAO.Recordset, ByVal tbl As String, cols() As String, _
+        vals() As String) As Object
+    Dim d As Object, j As Long, fld As String, v As Variant
+    Set d = CreateObject("Scripting.Dictionary")
+    d.CompareMode = vbTextCompare
+    For j = 0 To UBound(cols)
+        fld = cols(j)
+        If Len(vals(j)) = 0 Then
+            v = Null
+        Else
+            v = Unescape(vals(j))
+        End If
+        Select Case fld
+            Case "MsgKey"
+                If tbl = "tblMessages" Then d(fld) = v Else d("MessageID") = ParentID(db, "tblMessages", "MessageID", "MsgKey", v)
+            Case "SubName"
+                If tbl = "tblSubscriptions" Then d(fld) = v Else d("SubID") = ParentID(db, "tblSubscriptions", "SubID", "SubName", v)
+            Case "GroupName"
+                d("GroupID") = GroupIdFor(db, CStr(v))
+            Case Else
+                If IsNull(v) Then
+                    d(fld) = Null
+                ElseIf rs.Fields(fld).Type = dbDate Then
+                    d(fld) = IsoDate(CStr(v))
+                ElseIf rs.Fields(fld).Type = dbBoolean Then
+                    d(fld) = (v = "1")
+                Else
+                    d(fld) = v
+                End If
+        End Select
+    Next
+    Set SeedRowValues = d
+End Function
+
+' The keys (DictKey) of every row tbl has now, for LoadTsv to skip.
+Private Function ExistingKeys(db As DAO.Database, ByVal tbl As String, keyFlds() As String) As Object
+    Dim have As Object, rs As DAO.Recordset, j As Long, k As String
+    Set have = CreateObject("Scripting.Dictionary")
+    have.CompareMode = vbTextCompare            ' Access compares text without case
+    Set rs = db.OpenRecordset("SELECT " & Join(keyFlds, ", ") & " FROM " & tbl, dbOpenSnapshot)
+    Do While Not rs.EOF
+        k = ""
+        For j = 0 To UBound(keyFlds)
+            k = k & KeyPart(rs.Fields(keyFlds(j)).Value) & vbTab
+        Next
+        have(k) = True
+        rs.MoveNext
+    Loop
+    rs.Close
+    Set ExistingKeys = have
+End Function
+
+' A seed row's key (SeedRowValues), built as ExistingKeys builds a table row's.
+Private Function DictKey(seedRow As Object, keyFlds() As String) As String
+    Dim j As Long
+    For j = 0 To UBound(keyFlds)
+        If seedRow.Exists(keyFlds(j)) Then DictKey = DictKey & KeyPart(seedRow(keyFlds(j)))
+        DictKey = DictKey & vbTab
+    Next
+End Function
+
+' One key value as text: dates as yyyy-mm-dd hh:nn:ss (whatever the
+' computer's date settings), Null as "".
+Private Function KeyPart(ByVal v As Variant) As String
+    If IsNull(v) Or IsEmpty(v) Then Exit Function
+    If VarType(v) = vbDate Then
+        KeyPart = Year(v) & "-" & Right$("0" & Month(v), 2) & "-" & Right$("0" & Day(v), 2) & " " & _
+            Right$("0" & Hour(v), 2) & ":" & Right$("0" & Minute(v), 2) & ":" & Right$("0" & Second(v), 2)
+    Else
+        KeyPart = CStr(v)
+    End If
+End Function
 
 Private Function ParentID(db As DAO.Database, ByVal tbl As String, ByVal idFld As String, ByVal keyFld As String, ByVal key As Variant) As Long
     Dim rs As DAO.Recordset
@@ -369,6 +609,7 @@ Private Function GroupIdFor(db As DAO.Database, ByVal nm As String) As Long
     If rs.EOF Then
         rs.Close
         db.Execute "INSERT INTO tblAddressGroups (GroupName) VALUES ('" & Replace(nm, "'", "''") & "')", dbFailOnError
+        Added "tblAddressGroups"
         Set rs = db.OpenRecordset("SELECT GroupID FROM tblAddressGroups WHERE GroupName='" & Replace(nm, "'", "''") & "'", dbOpenSnapshot)
     End If
     GroupIdFor = rs!GroupID
@@ -483,6 +724,8 @@ End Sub
 ' every message in capitals, and local sequence #0042 next (the web app's).
 ' The prefix and digits stay # and 4 (the naval format check requires them).
 Private Sub SeedDraftingLookups(db As DAO.Database)
+    If RowCount(db, "tblCommandSettings", "SettingsID=1") > 0 Then Exit Sub
+    Added "tblCommandSettings"
     ExecDdl db, "INSERT INTO tblCommandSettings (SettingsID, Originator, MsgIdOriginator, TextCase, SeqPrefix, SeqDigits, NextSequence, " & _
       "UpdatedOn, UpdatedBy) VALUES (1, 'COMSUBLANT NORFOLK VA', 'COMSUBLANT', 'upper', '#', 4, 42, Now(), 'Data file build')"
 End Sub
@@ -525,10 +768,12 @@ Private Sub SeedDraftingDemo(db As DAO.Database)
 End Sub
 
 ' A workflow, on, with the steps named in steps ("A|B|C"), the last one the
-' release step, nobody holding them.
+' release step, nobody holding them. A workflow of that name already there
+' (perhaps changed by an admin) is left as it is.
 Private Sub AddWorkflow(db As DAO.Database, ByVal nm As String, ByVal desc As String, ByVal types As String, ByVal origs As String, _
         ByVal steps As String)
     Dim id As Long, p() As String, i As Long
+    If RowExists(db, "tblWorkflows", "WorkflowName", nm) Then Exit Sub
     ExecDdl db, "INSERT INTO tblWorkflows (WorkflowName, Description, IsActive, MatchTypes, MatchOriginators, UpdatedOn, UpdatedBy) VALUES ('" & _
         nm & "','" & desc & "',True,'" & types & "','" & origs & "',Now(),'Data file build')"
     id = db.OpenRecordset("SELECT @@IDENTITY")(0)
@@ -537,13 +782,16 @@ Private Sub AddWorkflow(db As DAO.Database, ByVal nm As String, ByVal desc As St
         ExecDdl db, "INSERT INTO tblWorkflowSteps (WorkflowID, StepOrder, StepTitle, StepAction) VALUES (" & id & "," & (i + 1) & ",'" & _
             p(i) & "','" & IIf(i = UBound(p), "release", "review") & "')"
     Next
+    Added "tblWorkflows": Added "tblWorkflowSteps", UBound(p) + 1
 End Sub
 
 ' A template, active, version 1, UNCLASSIFIED, class A, with its fields in
-' order, each "Name|hint": required, no length limit.
+' order, each "Name|hint": required, no length limit. A template of that name
+' already there, in any version, is left as it is.
 Private Sub AddTemplate(db As DAO.Database, ByVal nm As String, ByVal desc As String, ByVal msgType As String, ByVal prec As String, _
         ByVal toLine As String, ByVal infoLine As String, ByVal subj As String, ByVal body As String, ParamArray fields() As Variant)
     Dim id As Long, i As Long, p() As String
+    If RowExists(db, "tblTemplates", "TemplateName", nm) Then Exit Sub
     ExecDdl db, "INSERT INTO tblTemplates (TemplateName, VersionNo, Description, MsgType, MsgClass, Precedence, Classification, ToLine, " & _
         "InfoLine, Subject, BodyText, Status, CreatedOn, CreatedBy, UpdatedOn, UpdatedBy) VALUES ('" & nm & "',1,'" & desc & "','" & _
         msgType & "','A','" & prec & "','UNCLASSIFIED','" & toLine & "','" & infoLine & "','" & subj & "','" & body & _
@@ -554,6 +802,7 @@ Private Sub AddTemplate(db As DAO.Database, ByVal nm As String, ByVal desc As St
         ExecDdl db, "INSERT INTO tblTemplateFields (TemplateID, FieldName, SortOrder, IsRequired, MaxLen, DefaultText, Hint) VALUES (" & _
             id & ",'" & p(0) & "'," & (i + 1) & ",True,0,'','" & p(1) & "')"
     Next
+    Added "tblTemplates": Added "tblTemplateFields", UBound(fields) + 1
 End Sub
 
 ' ---------------------------------------------------------------------------
@@ -584,10 +833,166 @@ End Sub
 ' mailbox yet, its Inbox, class A, up to SECRET (demonstration markings), no
 ' automatic checks.
 Private Sub SeedIngestSettings(db As DAO.Database)
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestDropFolder',Null,'Mail ingest: the drop folder (blank: ingest beside the data file)')"
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestMailbox',Null,'Mail ingest: the mailbox Outlook reads')"
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestFolder','Inbox','Mail ingest: the folder in that mailbox')"
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestDefaultClass','A','Mail ingest: the class received messages take')"
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestMaxClassification','SECRET','Mail ingest: the highest marking taken')"
-    ExecDdl db, "INSERT INTO tblSettings VALUES ('IngestTimerMinutes','0','Mail ingest: minutes between checks while Admin is open (0 off)')"
+    AddSetting db, "IngestDropFolder", Null, "Mail ingest: the drop folder (blank: ingest beside the data file)"
+    AddSetting db, "IngestMailbox", Null, "Mail ingest: the mailbox Outlook reads"
+    AddSetting db, "IngestFolder", "Inbox", "Mail ingest: the folder in that mailbox"
+    AddSetting db, "IngestDefaultClass", "A", "Mail ingest: the class received messages take"
+    AddSetting db, "IngestMaxClassification", "SECRET", "Mail ingest: the highest marking taken"
+    AddSetting db, "IngestTimerMinutes", "0", "Mail ingest: minutes between checks while Admin is open (0 off)"
+End Sub
+
+' ---------------------------------------------------------------------------
+' Demo people (SeedBackEndAt with a demo Personnel file)
+' ---------------------------------------------------------------------------
+' The kit's Start with demo personnel makes a Personnel file of 20 made-up
+' people, demo01 to demo20, all of command DEMO_PERSONNEL_COMMAND. Each one
+' found there gets an ANCHOR profile and roles (DemoProfiles); the seeded
+' routing steps nobody holds go to the demo billet that matches each; and the
+' Commander, Chief of Staff and N4 become release authorities. So a demo can
+' sign in as demo01 to demo20 and route a draft end to end.
+' Only those made-up people are read: the Personnel file is opened read only
+' and only rows of the demo command with a demo## sign-in name are used, so a
+' file of real people gives "no demo people" and nothing is added. A person
+' who already has an ANCHOR profile keeps it and their roles; a step someone
+' holds keeps its holder; a person with any release designation keeps theirs.
+' The front end must link the same Personnel file, since tblPeople is keyed
+' on its person_id.
+
+Private Sub SeedDemoPeople(db As DAO.Database, ByVal personnel As String)
+    Dim ids As Object, v As Variant, f() As String, pid As Long
+    Set ids = DemoPersonIds(personnel)
+    For Each v In DemoProfiles()
+        f = Split(v, "|")
+        If ids.Exists(f(0)) Then
+            pid = ids(f(0))
+            AddDemoProfile db, pid, f(1), f(2), f(3), f(4)
+            HoldDemoSteps db, pid, f(5)
+            If Len(f(6)) > 0 Then AddDemoAuthority db, pid, f(1), f(6)
+        End If
+    Next
+    ' The first-admin bootstrap (modSignIn.AddSelf) is for a data file nobody
+    ' has opened; with demo admins in it, it is done.
+    If RowCount(db, "tblPeople", "IsAdmin") > 0 Then
+        AddSetting db, "AdminBootstrapped", "1", "Set once the first admin was made from the Personnel admins"
+    End If
+End Sub
+
+' Each demo person's ANCHOR profile, one
+' "sign-in|billet|unit|community|roles|steps they hold|release" each:
+'   roles     tblRoles codes, separated by commas
+'   steps     seeded workflow step titles (SeedDraftingDemo), separated by ";"
+'   release   "" none, CO the Commander (every type), ALL every type, or the
+'             one message type they release
+' Ranks and names come from the Personnel file (the kit's DemoPeople), so
+' each billet suits its rank there.
+Private Function DemoProfiles() As Variant
+    Const ALL_ROLES As String = "VIEW,REQUEST,BRIEF,REPORT,APPROVER,RELEASE,ADMIN"
+    DemoProfiles = Array( _
+        "demo01|Commander|COMSUBLANT|Submarine Warfare|" & ALL_ROLES & "|Commander release|CO", _
+        "demo02|Admin Chief|COMSUBLANT N1|Administration|VIEW,REQUEST,REPORT,ADMIN||", _
+        "demo03|Chief of Staff|COMSUBLANT|Submarine Warfare|VIEW,REQUEST,BRIEF,REPORT,APPROVER,RELEASE|" & _
+            "Chief of Staff review;Chief of Staff release|ALL", _
+        "demo04|N3 Operations Officer|COMSUBLANT N3|Readiness|VIEW,REQUEST,BRIEF,REPORT|N3 review|", _
+        "demo05|N4 Logistics Officer|COMSUBLANT N4|Logistics|VIEW,REQUEST,REPORT,RELEASE|N4 release|FLEET MSG", _
+        "demo06|Supply Officer|COMSUBLANT N4|Logistics|VIEW,REQUEST|Supply review|", _
+        "demo07|Communications Officer|COMSUBLANT N6|Cybersecurity|VIEW,REQUEST,REPORT,APPROVER||", _
+        "demo08|Engineering Master Chief|COMSUBLANT N4|Readiness|VIEW,REQUEST,BRIEF||", _
+        "demo09|Electronics Division Chief|COMSUBLANT N6|Cybersecurity|VIEW,REQUEST,BRIEF||", _
+        "demo10|Sonar Division Chief|COMSUBLANT N3|Submarine Warfare|VIEW,REQUEST||", _
+        "demo11|Auxiliary Division LPO|COMSUBLANT N4|Readiness|VIEW,REQUEST||", _
+        "demo12|Radio Division LPO|COMSUBLANT N6|Cybersecurity|VIEW,REQUEST||", _
+        "demo13|Admin LPO|COMSUBLANT N1|Administration|VIEW,REQUEST||", _
+        "demo14|Network Technician|COMSUBLANT N6|Cybersecurity|VIEW,REQUEST||", _
+        "demo15|Logistics Specialist|COMSUBLANT N4|Logistics|VIEW,REQUEST||", _
+        "demo16|Machinery Technician|COMSUBLANT N4|Readiness|VIEW,REQUEST||", _
+        "demo17|Electronics Technician|COMSUBLANT N6|Cybersecurity|VIEW,REQUEST||", _
+        "demo18|Sonar Technician|COMSUBLANT N3|Submarine Warfare|VIEW,REQUEST||", _
+        "demo19|Duty Driver|COMSUBLANT N1|Administration|VIEW,REQUEST||", _
+        "demo20|Engineering Watchstander|COMSUBLANT N4|Training|VIEW,REQUEST||")
+End Function
+
+' The demo people of the Personnel file at personnel, sign-in name ->
+' person_id. Read only, with the site key from its key file.
+' Errors: 53 no such file or key file; 5 no demo people in it.
+Private Function DemoPersonIds(ByVal personnel As String) As Object
+    Dim pdb As DAO.Database, rs As DAO.Recordset, ids As Object, keyPath As String, siteKey As String
+    Dim errNo As Long, errText As String
+    On Error GoTo Fail
+    If Len(Dir(personnel)) = 0 Then Err.Raise 53, , "There is no Personnel file at " & personnel & "."
+    keyPath = Left$(personnel, InStrRev(personnel, "\")) & PERSONNEL_KEY_FILE_NAME
+    If Len(Dir(keyPath)) = 0 Then Err.Raise 53, , "There is no " & PERSONNEL_KEY_FILE_NAME & " beside " & personnel & "."
+    siteKey = Trim$(Split(Replace(ReadUtf8(keyPath), vbCr, vbLf), vbLf)(0))
+    Set pdb = DBEngine.OpenDatabase(personnel, False, True, ";PWD=" & siteKey)
+    Set rs = pdb.OpenRecordset("SELECT person_id, username FROM kit_person WHERE command=" & SqlText(DEMO_PERSONNEL_COMMAND) & _
+        " AND username Like 'demo##' AND is_active", dbOpenSnapshot)
+    Set ids = CreateObject("Scripting.Dictionary")
+    ids.CompareMode = vbTextCompare
+    Do While Not rs.EOF
+        ids(LCase$(rs!username)) = CLng(rs!person_id)
+        rs.MoveNext
+    Loop
+    rs.Close: Set rs = Nothing
+    pdb.Close: Set pdb = Nothing
+    If ids.Count = 0 Then
+        Err.Raise 5, , "That Personnel file has no demo people (command " & DEMO_PERSONNEL_COMMAND & _
+            "). Make one with Start with demo personnel, or leave -Personnel off."
+    End If
+    Set DemoPersonIds = ids
+    Exit Function
+Fail:
+    errNo = Err.Number: errText = Err.Description   ' Close resets Err
+    On Error Resume Next
+    If Not rs Is Nothing Then rs.Close
+    If Not pdb Is Nothing Then pdb.Close
+    On Error GoTo 0
+    Err.Raise errNo, "modBuildBackEnd.DemoPersonIds", errText
+End Function
+
+' The person's tblPeople row and roles, unless they already have a profile.
+' IsAdmin follows the ADMIN role, as modAdmin keeps it.
+Private Sub AddDemoProfile(db As DAO.Database, ByVal pid As Long, ByVal billet As String, ByVal unit As String, _
+        ByVal community As String, ByVal roles As String)
+    Dim r As Variant, isAdmin As Boolean
+    If RowCount(db, "tblPeople", "PersonID=" & pid) > 0 Then Exit Sub
+    isAdmin = InStr("," & roles & ",", ",ADMIN,") > 0
+    ExecDdl db, "INSERT INTO tblPeople (PersonID, Billet, Unit, Community, Location, IsAdmin, IsActive, NotifyEmail) VALUES (" & _
+        pid & "," & SqlText(billet) & "," & SqlText(unit) & "," & SqlText(community) & ",'Norfolk, VA'," & _
+        IIf(isAdmin, "True", "False") & ",True,False)"
+    Added "tblPeople"
+    For Each r In Split(roles, ",")
+        ExecDdl db, "INSERT INTO tblPersonRoles (PersonID, RoleID) VALUES (" & pid & "," & RoleIdOf(db, CStr(r)) & ")"
+        Added "tblPersonRoles"
+    Next
+End Sub
+
+Private Function RoleIdOf(db As DAO.Database, ByVal code As String) As Long
+    Dim rs As DAO.Recordset
+    Set rs = db.OpenRecordset("SELECT RoleID FROM tblRoles WHERE RoleCode=" & SqlText(code), dbOpenSnapshot)
+    If rs.EOF Then rs.Close: Err.Raise 5, , "tblRoles has no role " & code & "."
+    RoleIdOf = rs!RoleID
+    rs.Close
+End Function
+
+' Give the person every workflow step titled one of titles ("A;B") that
+' nobody holds.
+Private Sub HoldDemoSteps(db As DAO.Database, ByVal pid As Long, ByVal titles As String)
+    Dim t As Variant
+    For Each t In Split(titles, ";")
+        If Len(t) > 0 Then
+            db.Execute "UPDATE tblWorkflowSteps SET PersonID=" & pid & " WHERE StepTitle=" & SqlText(CStr(t)) & _
+                " AND PersonID Is Null", dbFailOnError
+            Added "tblWorkflowSteps (holders)", db.RecordsAffected
+        End If
+    Next
+End Sub
+
+' A release designation for the person (release: CO, ALL or one message
+' type), unless they already hold one.
+Private Sub AddDemoAuthority(db As DAO.Database, ByVal pid As Long, ByVal designation As String, ByVal release As String)
+    Dim scopeSql As String
+    If RowCount(db, "tblReleaseAuthorities", "PersonID=" & pid) > 0 Then Exit Sub
+    If release = "CO" Or release = "ALL" Then scopeSql = "Null" Else scopeSql = SqlText(release)
+    ExecDdl db, "INSERT INTO tblReleaseAuthorities (PersonID, Designation, IsCommandingOfficer, Scope, CreatedOn, CreatedBy) VALUES (" & _
+        pid & "," & SqlText(designation) & "," & IIf(release = "CO", "True", "False") & "," & scopeSql & ",Now(),'Demo seed')"
+    Added "tblReleaseAuthorities"
 End Sub
