@@ -89,6 +89,11 @@ Private Sub CreateTables(db As DAO.Database)
       "Location TEXT(60), Dsn TEXT(30), Groups TEXT(255), IsAdmin YESNO, IsActive YESNO, NotifyEmail YESNO, LastSeenOn DATETIME)"
     ExecDdl db, "CREATE TABLE tblPersonRoles (PersonID LONG NOT NULL, RoleID LONG NOT NULL, CONSTRAINT pkPersonRoles PRIMARY KEY (PersonID, RoleID))"
 
+    ' ---- Message types and communications classes (Stephen's list, 2026-11-05) ----
+    ExecDdl db, "CREATE TABLE tblMessageTypes (TypeID AUTOINCREMENT PRIMARY KEY, TypeCode TEXT(30) NOT NULL, TypeName TEXT(100), " & _
+      "Category TEXT(30), Description TEXT(255), IsActive YESNO, SortOrder INTEGER)"
+    ExecDdl db, "CREATE TABLE tblMessageClasses (ClassCode TEXT(1) PRIMARY KEY, ClassName TEXT(100), Description TEXT(255))"
+
     ' ---- Commands and address groups (ack tracking expands a group to its commands) ----
     ExecDdl db, "CREATE TABLE tblAddressGroups (GroupID AUTOINCREMENT PRIMARY KEY, GroupName TEXT(100) NOT NULL)"
     ExecDdl db, "CREATE TABLE tblGroupMembers (GroupID LONG NOT NULL, CommandName TEXT(100) NOT NULL, " & _
@@ -101,7 +106,7 @@ Private Sub CreateTables(db As DAO.Database)
       "Classification TEXT(20) NOT NULL, Importance TEXT(10), Lifecycle TEXT(12) NOT NULL, RelatesTo TEXT(60), " & _
       "ReplacedBy TEXT(60), Communities TEXT(255), AckRequired YESNO, AckDue DATETIME, ActionText TEXT(255), " & _
       "ActionSuspense TEXT(20), ActionAssignedTo TEXT(60), C2oixId TEXT(30), Sha256 TEXT(64), SizeKb LONG, " & _
-      "Retention TEXT(40), Distribution TEXT(255), Related TEXT(255), AiSummary MEMO, RawText MEMO, BodyText MEMO)"
+      "MsgClass TEXT(1), Retention TEXT(40), Distribution TEXT(255), Related TEXT(255), AiSummary MEMO, RawText MEMO, BodyText MEMO)"
     ExecDdl db, "CREATE TABLE tblMessageSections (SectionID AUTOINCREMENT PRIMARY KEY, MessageID LONG NOT NULL, " & _
       "SortOrder INTEGER, Heading TEXT(100), Body MEMO)"
     ExecDdl db, "CREATE TABLE tblAttachments (AttachmentID AUTOINCREMENT PRIMARY KEY, MessageID LONG NOT NULL, " & _
@@ -165,6 +170,7 @@ End Sub
 
 Private Sub CreateIndexes(db As DAO.Database)
     ExecDdl db, "CREATE UNIQUE INDEX uxRoleCode ON tblRoles (RoleCode)"
+    ExecDdl db, "CREATE UNIQUE INDEX uxTypeCode ON tblMessageTypes (TypeCode)"
     ExecDdl db, "CREATE UNIQUE INDEX uxGroupName ON tblAddressGroups (GroupName)"
     ExecDdl db, "CREATE UNIQUE INDEX uxMsgKey ON tblMessages (MsgKey)"
     ExecDdl db, "CREATE INDEX ixMsgReceived ON tblMessages (ReceivedOn)"
@@ -214,6 +220,7 @@ Private Sub SeedLookups(db As DAO.Database)
     ExecDdl db, "INSERT INTO tblSettings VALUES ('SchemaVersion','1','Back-end schema version')"
     ExecDdl db, "INSERT INTO tblSettings VALUES ('CommandSource','COMSUBLANT','The source code of this command''s own traffic')"
     ExecDdl db, "INSERT INTO tblSettings VALUES ('CommandName','Commander, Submarine Force Atlantic','This command''s name')"
+    SeedMessageTypes db
     ' Business rules that make delivery mandatory (the web app's Admin page).
     AddRule db, 1, "Precedence", "FLASH, IMMEDIATE", "All addressed units", 2, "Department Head, then XO"
     AddRule db, 2, "Message type", "SAFETY MSG", "All personnel", 24, "Safety Officer"
@@ -223,6 +230,49 @@ Private Sub SeedLookups(db As DAO.Database)
     AddAccess db, "COMSUBLANT N6", "Role", 14, "Directorate traffic, officer-only"
     AddAccess db, "Comms Division", "Role", 9, "Unit traffic, comms admin"
     AddAccess db, "SUBRON Staff", "Group", 38, "Squadron traffic"
+End Sub
+
+' The message types (administrative, operational, safety, and the web app's
+' command traffic types) and the five communications classes. Admins can add
+' more; drafting and search pick from this list.
+Private Sub SeedMessageTypes(db As DAO.Database)
+    Dim t As Variant, p() As String, i As Long
+    For Each t In Array( _
+            "NAVADMIN|Navy administrative message|Administrative & General|Navy-specific administrative messages to all Navy units and the Marine Corps", _
+            "ALNAV|All Navy message|Administrative & General|SECNAV messages to all Navy and Marine Corps activities", _
+            "ALNAVRESFOR|All Navy Reserve Force message|Administrative & General|Navy Reserve administrative messages", _
+            "ALSAFE|All safety message|Administrative & General|Naval Safety Command safety-related messages", _
+            "GENADMIN|General administrative message|Administrative & General|Standard narrative format for most administrative messages", _
+            "CIM|Communications Improvement Memorandum|Administrative & General|Post-incident training notice on procedural errors", _
+            "OPGEN|Operational general message|Operational|Policy, general instructions and common warfare information", _
+            "OPTASK|Operational task message|Operational|Specific tasking and resource allocation", _
+            "OPSTAT|Operational status message|Operational|Status reports and operational data", _
+            "WARNORD|Warning Order|Operational|Preliminary notice of impending action, to allow planning", _
+            "LOI|Letter of Instruction|Operational|Planning guidance when a formal order is not required", _
+            "OPNAVINST|OPNAV instruction|Web app traffic|Chief of Naval Operations instruction", _
+            "MARADMIN|Marine Corps administrative message|Web app traffic|Marine Corps administrative messages", _
+            "NAVSEAINST|NAVSEA instruction|Web app traffic|Naval Sea Systems Command instruction", _
+            "COMSUBLANT MSG|COMSUBLANT message|Web app traffic|Commander, Submarine Force Atlantic traffic", _
+            "COMSUBFOR INST|COMSUBFOR instruction|Web app traffic|Submarine Force instruction", _
+            "FLEET MSG|Fleet message|Web app traffic|Fleet-wide operational traffic", _
+            "SAFETY MSG|Safety message|Web app traffic|Safety direction to all personnel", _
+            "HYDRO|Hydrographic advisory|Special|Hydrographic and navigation advisories", _
+            "NOTAM|Notice to Airmen and Mariners|Special|Navigation advisories", _
+            "Q MESSAGE|Q message|Special|Specialized question and answer messages", _
+            "ALL SHIPS PRESENT|All ships present message|Special|Broadcast to all ships in a designated area", _
+            "RED CROSS|Red Cross message|Special|Humanitarian and Red Cross communications")
+        p = Split(t, "|"): i = i + 1
+        ExecDdl db, "INSERT INTO tblMessageTypes (TypeCode, TypeName, Category, Description, IsActive, SortOrder) VALUES ('" & _
+            p(0) & "','" & p(1) & "','" & p(2) & "','" & p(3) & "',True," & i & ")"
+    Next
+    For Each t In Array("A|Official Department of Defense|Official DoD messages (the largest volume)", _
+            "B|Other U.S. Government|Other U.S. Government departments and agencies", _
+            "C|Broadcast|Broadcast traffic for all nationalities (weather, hydrographic data)", _
+            "D|Private, toll|Private messages for which the Navy collects tolls (press)", _
+            "E|Personal|Personal messages to and from naval personnel, free over Navy circuits")
+        p = Split(t, "|")
+        ExecDdl db, "INSERT INTO tblMessageClasses (ClassCode, ClassName, Description) VALUES ('" & p(0) & "','" & p(1) & "','" & p(2) & "')"
+    Next
 End Sub
 
 Private Sub AddRule(db As DAO.Database, ByVal ord As Long, ByVal kind As String, ByVal match As String, ByVal aud As String, _

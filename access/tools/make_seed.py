@@ -74,7 +74,7 @@ def main(src, folder):
     write(folder, "tblMessages",
           ["MsgKey", "Dtg", "ReceivedOn", "Subject", "Reference", "MsgType", "Originator", "Source", "ToLine", "InfoLine",
            "Precedence", "Classification", "Importance", "Lifecycle", "RelatesTo", "ReplacedBy", "Communities",
-           "AckRequired", "AckDue", "ActionText", "ActionSuspense", "ActionAssignedTo", "C2oixId", "Sha256", "SizeKb",
+           "AckRequired", "AckDue", "ActionText", "ActionSuspense", "ActionAssignedTo", "C2oixId", "Sha256", "SizeKb", "MsgClass",
            "Retention", "Distribution", "Related", "AiSummary", "RawText", "BodyText"],
           [{
               "MsgKey": m["id"], "Dtg": m["dtg"], "ReceivedOn": iso(m["received"]), "Subject": m["subject"],
@@ -87,7 +87,7 @@ def main(src, folder):
               "ActionText": (m.get("actionItem") or {}).get("text"),
               "ActionSuspense": (m.get("actionItem") or {}).get("suspense"),
               "ActionAssignedTo": (m.get("actionItem") or {}).get("assignedTo"),
-              "C2oixId": m["c2oixId"], "Sha256": m["sha256"], "SizeKb": m["sizeKb"], "Retention": m["retention"],
+              "C2oixId": m["c2oixId"], "Sha256": m["sha256"], "SizeKb": m["sizeKb"], "MsgClass": "A", "Retention": m["retention"],
               "Distribution": "; ".join(m["distribution"]),
               "Related": "; ".join(key_of.get(r, r) for r in m["related"]),
               "AiSummary": m.get("aiSummary"), "RawText": m["rawText"], "BodyText": body_text(m["sections"]),
