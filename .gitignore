@@ -10,3 +10,4 @@ __pycache__/
 # The local test Personnel file and its site key (made by the setup screen)
 access/Personnel/
 *.key
+.claude/worktrees/
