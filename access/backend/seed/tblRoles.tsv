@@ -4,4 +4,5 @@ BRIEF	Briefing Creator	Create and customize briefings	2
 REQUEST	Subscription Requester	Request subscriptions for approval	3
 REPORT	Report Viewer	Acknowledgement and traffic reports	4
 APPROVER	Subscription Approver	Approve unit subscription requests	5
-ADMIN	System Admin	Manage unit users and settings	6
+RELEASE	Designated Release Authority	Release outgoing command traffic	6
+ADMIN	System Admin	Manage unit users and settings	7

@@ -57,6 +57,11 @@ Public Function StatusVariant(ByVal status As Variant) As String
         Case "PRIORITY", "AMENDED", "CORRECTED", "CUI", "New", "Unread", "Open", "Mandatory", "Real-time": StatusVariant = "info"
         Case "ACTIVE", "Success", "Acknowledged", "Approved", "UNCLASSIFIED", "Done", "Sealed", "Verified", "Read", "Granted": StatusVariant = "success"
         Case "ROUTINE", "EXPIRED", "Paused", "Not Started", "Off", "Daily Digest", "Weekly", "Closed", "Retired", "Deactivated", "Not granted": StatusVariant = "secondary"
+        ' Drafting, Templates and Admin: Routing (modDrafting, modTemplates, modRouting)
+        Case "Your action", "Returned", "Awaiting action", "No role": StatusVariant = "warning"
+        Case "In Routing": StatusVariant = "info"
+        Case "Released", "Endorsed", "Holds role": StatusVariant = "success"
+        Case "Drafting", "Withdrawn", "Not yet", "Inactive": StatusVariant = "secondary"
     End Select
     Exit Function
 Gone:

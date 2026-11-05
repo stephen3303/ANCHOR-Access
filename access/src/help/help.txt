@@ -269,6 +269,63 @@ Every ANCHOR role, what it allows and whether you hold it. Your roles decide the
 - **Email notices** sends an email to the Personnel file's address when traffic you must act on arrives. It is saved as soon as you flip it.
 - **Appearance** picks the palette the whole app uses on this computer.
 - **Sign out** lets someone else sign in on this copy without closing Access.
+=== drafting | Drafting & Release
+Draft outgoing command traffic, route it through its review chain and release it. A released message joins **Messages** as the command's own traffic.
+
+# The list
+Every draft, the latest change first. The chips show **All**, **Waiting on me** (a step you hold), **My drafts** and **Released**. Type in the search box to find a draft by its subject, type, sequence, drafter or holder. **Your action** marks a draft that waits on you.
+
+# Writing a draft
+Click **New draft** (or press **Ctrl+N**) and pick **(Blank draft)** or a template. A template asks you for each of its fields, then opens the draft. On the **Draft** tab, fill in the subject, the message type, class, precedence and classification, the FM line and the addressees (separate them with semicolons), and the text. A blank line starts the next paragraph; ANCHOR numbers them for you. Click **Save** (or **Ctrl+S**) as you go. Only the drafter edits a draft, and only before it is submitted or after it is returned.
+
+# Classification
+ANCHOR carries UNCLASSIFIED, CUI, CONFIDENTIAL and SECRET for demonstration only. A draft marked above UNCLASSIFIED shows its demo marking, and its text carries the line UNCLASSIFIED - CLASSIFICATION MARKINGS FOR TESTING PURPOSES ONLY.
+
+# The message as it transmits
+The **Message** tab shows the text as it would go out: the classification lines, precedence, DTG, FM, TO, INFO, MSGID, SUBJ, RMKS and the local sequence, in capitals when the command sets that. The DTG and sequence are filled in at release. The naval format check runs on it as it would go if released now: what it lists under **To fix** stops a submit and a release; its warnings never do.
+
+=== drafting.route | Routing and release
+# Submitting
+On the **Route** tab, **Submit for routing** sends the draft on the routing workflow that matches its message type and originator, to the first step's holder. It can't be submitted without a subject, an action addressee and text, while the format check finds something to fix, or while a step of its chain has nobody who can act on it.
+
+# Reviewing
+When a draft waits on you, its Route tab shows **Endorse** (pass it to the next step) and **Return** (send it back to its drafter). Type a comment; a return needs one. The drafter corrects a returned draft and resubmits it, which starts its chain again.
+
+# Releasing
+The last step of every chain is the release step. Its holder releases the draft when they are a release authority for its message type and hold the **Designated Release Authority** role. **Release** assigns the DTG (now, in UTC) and the next local sequence, freezes the text and adds the message to Messages. **Open in Messages** opens it there.
+
+# Withdrawing and the log
+The drafter can **Withdraw** a draft before release; it is kept for the record. The **Log** tab lists every step taken on the draft, newest first. The log is only ever added to, and every action is in the audit trail.
+
+=== templates | Templates
+Reusable messages with fields the drafter fills in. Write a field as **{{ Name }}** in the subject, the addressees or the text.
+
+# Versions
+A template has numbered versions. A new version is **Inactive**, and only an inactive version can change. **Activate** makes it the version drafts start from and retires the name's earlier active version. **Retire** stops new drafts starting from it. **New version** copies a version, inactive, to edit. Drafts already started keep their text.
+
+# Starting a draft
+Pick an active template and click **Start draft**. ANCHOR asks for each field in turn, with its hint, then opens the new draft on the Drafting page.
+
+# Who changes templates
+ANCHOR admins add, edit, activate and retire templates. Everyone starts drafts from them. A template's fixed text goes into every draft whatever its classification, so it can't carry a classification marking: Activate refuses one.
+
+=== templates.fields | Field rules
+Each field has rules, set on the **Fields** tab with **Field rules** (or a double-click): whether a draft must fill it, a maximum length (0 for no limit), a default filled in for new drafts, and a hint shown when the drafter fills it in. The fields follow the tags: saving the template adds a field for a new tag and drops one whose tag is gone.
+
+=== routing | Admin: Routing
+How outgoing traffic is routed and released. For ANCHOR admins; open it from the **Admin** page.
+
+# Workflows
+A draft takes the most specific active workflow for its message type and originator: one naming its type comes before one naming only its originator, and one naming neither matches anything. Each workflow is a chain of steps, each held by a person from the Personnel file; the last step, and only the last, releases. A step whose holder is turned off or has left strands the chain until you name the relief. Changes to a chain apply to drafts submitted from then on.
+- **New workflow** adds one, off, with a review and a release step.
+- **Add step**, **Change**, **Up**, **Down** and **Remove** change the chain at once.
+- **Turn on** needs a whole chain. An active workflow's chain can't be broken: turn it off first to rework it.
+
+# Release authority
+Who may release: a designation for every message type or for one. Releasing also needs the **Designated Release Authority** role (Admin: Users) and holding the draft's release step.
+
+# Command settings
+The text case (every message in capitals, or as typed), the FM line, the MSGID originator and the next local sequence number. The sequence is # and four digits, as the naval format check requires, and can't go back to a number a released message took.
 
 === directory | Personnel
 One shared Personnel file holds everyone who can use the Navy apps built on

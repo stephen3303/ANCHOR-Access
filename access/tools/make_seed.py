@@ -145,8 +145,10 @@ def main(src, folder):
     write(folder, "tblTurnoverChecklist", ["ItemText", "SortOrder", "IsActive"],
           [{"ItemText": t, "SortOrder": i, "IsActive": True} for i, t in enumerate(d["TURNOVER_CHECKLIST"], 1)])
     codes = {"Message Viewer": "VIEW", "Briefing Creator": "BRIEF", "Subscription Requester": "REQUEST",
-             "Report Viewer": "REPORT", "Subscription Approver": "APPROVER", "System Admin": "ADMIN"}
-    # Designated Release Authority belongs to drafting and release, which stay in Message Generator.
+             "Report Viewer": "REPORT", "Subscription Approver": "APPROVER",
+             "Designated Release Authority": "RELEASE", "System Admin": "ADMIN"}
+    # Designated Release Authority: drafting and release came over from Message Generator (Stephen,
+    # 2026-11-05); the role gates Release on the Drafting page, with tblReleaseAuthorities.
     write(folder, "tblRoles", ["RoleCode", "RoleName", "Detail", "SortOrder"],
           [{"RoleCode": codes[r["name"]], "RoleName": r["name"], "Detail": r["detail"], "SortOrder": i}
            for i, r in enumerate((r for r in d["CURRENT_USER"]["roles"] if r["name"] in codes), 1)])
