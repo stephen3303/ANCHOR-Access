@@ -110,22 +110,22 @@ End Function
 Public Sub Build_pgMessages()
     Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, lw As Long, btnY As Long
     NewForm "", 0, PAGE_W, PAGE_H
-    Ev F, "OnLoad"
+    Ev F, "OnLoad", "OnTimer"             ' OnTimer: the list loads once the page is open
     PageHeader "Messages", "Every message ANCHOR received, newest first. Pick one to see its preview; double-click it, " & _
         "or click Open, to read it in full. The dot marks the messages you haven't read.", PAGE_PAD
     y = px(84)
-    SearchBox "txtSearch", PAGE_PAD, y, px(240), "SearchFor", "Search subject, reference, originator...", px(32)
+    SearchBox "txtSearch", PAGE_PAD, y, px(240), "SearchFor", "Search messages...", px(32)
     x = PAGE_PAD + px(252)
     Segmented "segShow", "", x, y, px(240), "all|All;unread|Unread;ack|Ack due", px(32), "ShowChanged"
     x = x + px(252)
     Set c = Cbo("cboPrec", "", MSG_ALL_PREC & ";FLASH;IMMEDIATE;PRIORITY;ROUTINE", x, y, px(128), px(32))
-    c.ControlTipText = "Only messages of this precedence": Ev c, "AfterUpdate"
+    c.ControlTipText = "Only messages of this precedence": Ev c, "AfterUpdate", "OnGotFocus"
     x = x + px(136)
     Set c = Cbo("cboType", "", MSG_ALL_TYPES, x, y, px(160), px(32))
-    c.ControlTipText = "Only messages of this type (the types an admin keeps)": Ev c, "AfterUpdate"
+    c.ControlTipText = "Only messages of this type (the types an admin keeps)": Ev c, "AfterUpdate", "OnGotFocus"
     x = x + px(168)
     Set c = Cbo("cboClass", "", MSG_ALL_CLASSES & ";UNCLASSIFIED;CUI;CONFIDENTIAL;SECRET", x, y, px(140), px(32))
-    c.ControlTipText = "Only messages of this classification": Ev c, "AfterUpdate"
+    c.ControlTipText = "Only messages of this classification": Ev c, "AfterUpdate", "OnGotFocus"
 
     y = px(128): h = PAGE_H - y - px(16): lw = MsgListW(): btnY = y + h - px(46)
     Card "List", "Messages", PAGE_PAD, y, lw, h, , 2, 2
@@ -176,7 +176,7 @@ Public Sub Build_pgMessage()
     Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, mw As Long, sx As Long, before As Object
     Dim ty As Long, k As String
     NewForm "", 0, PAGE_W, PAGE_H
-    Ev F, "OnLoad", "OnTimer"             ' OnTimer: a related message picked loads once its click has finished
+    Ev F, "OnLoad", "OnTimer"             ' OnTimer: the message loads once the page is open, and a related one once its click has finished
     PageHeader "Message", "The official text exactly as received, its integrity data, its status and your acknowledgement. " & _
         "The AI summary is a reading aid only, shown apart and never the official record.", PAGE_PAD
     Set c = Btn("btnPrint", "Print", PAGE_W - PAGE_PAD - px(80), px(24), px(80), px(32), "outline"): Anchor c, 1, 0
@@ -270,10 +270,10 @@ Public Sub Build_pgMessage()
     c.Visible = False
 
     Set before = NamesNow()
-    Set c = Lbl("lblAckSum", "", fx, ty, fw, px(36), 9, False, CLR_FG)
+    Set c = Lbl("lblAckSum", "", fx, ty, fw, px(52), 9, False, CLR_FG)     ' three lines
     c.TopMargin = 0
-    GridHeaders "hdrAcks", MsgAckCols(), fx, ty + px(44), w:=fw, sortSf:="sfAcks"
-    Set c = SubF("sfAcks", "subGridMsgAcks", fx, ty + px(66), fw, y + h - px(16) - (ty + px(66))): c.TabStop = False
+    GridHeaders "hdrAcks", MsgAckCols(), fx, ty + px(60), w:=fw, sortSf:="sfAcks"
+    Set c = SubF("sfAcks", "subGridMsgAcks", fx, ty + px(82), fw, y + h - px(16) - (ty + px(82))): c.TabStop = False
     GroupSince before, "grpK"
 
     Set before = NamesNow()

@@ -22,7 +22,10 @@ Option Explicit
 '
 ' A related message opens on this page without leaving it: the click sets
 ' the TempVar and the page loads it from its timer, once the click's own
-' event has finished.
+' event has finished. The first message loads the same way, once the page
+' is open and sized (Form_Load only lists the controls and sets the
+' timer), so no subform is read or requeried, and nothing is written
+' (MarkRead), while the shell is still loading the page.
 '
 ' Depends on: modAudit, modGlobals, modMessages, modMessageView, modSignIn,
 ' modUI; the kit's modKitUI, modKitUtil.
@@ -40,6 +43,7 @@ Private m_nextId As Long        ' the message Form_Timer loads next
 Private m_attN As Long          ' attachments of the message shown
 Private m_relN As Long          ' related messages ANCHOR holds
 Private m_ownAck As Boolean     ' own traffic needing the addressees' acknowledgement
+Private m_firstLoad As Boolean  ' Form_Timer's first tick loads the TempVar's message
 
 Public Property Get HelpTopic() As String
     HelpTopic = "message"
@@ -59,17 +63,29 @@ Private Sub Form_Load()
     Next
     m_tab = "d"
     SelectTab Me, m_tab
-    LoadMessage Nz(TempVars("OpenMessageID"), 0)
+    For Each c In Me.Controls               ' nothing shows until Form_Timer has loaded the message
+        If InStr(m_content, ";" & c.Name & ";") > 0 Then SetVisible c, False
+    Next
+    m_firstLoad = True
+    Me.TimerInterval = 1
     Exit Sub
 Err_Handler:
     HandleError "pgMessage.Form_Load"
 End Sub
 
-' A related message picked: load it now the click has finished.
+' Once loaded, the TempVar's message; later, a related message picked, now
+' the click has finished.
 Private Sub Form_Timer()
     Dim nextId As Long
     On Error GoTo Err_Handler
+    If Me.TimerInterval = 0 Then Exit Sub   ' a tick left over from before
     Me.TimerInterval = 0
+    If m_firstLoad Then
+        m_firstLoad = False
+        m_nextId = 0
+        LoadMessage Nz(TempVars("OpenMessageID"), 0)
+        Exit Sub
+    End If
     nextId = m_nextId
     m_nextId = 0
     If nextId <> 0 Then LoadMessage nextId
@@ -80,7 +96,7 @@ End Sub
 
 ' Load message nextId from the timer (see Form_Timer).
 Private Sub OpenLater(ByVal nextId As Long)
-    If nextId = 0 Or nextId = m_id Then Exit Sub
+    If nextId = 0 Or nextId = m_id Or m_firstLoad Then Exit Sub
     TempVars("OpenMessageID") = nextId
     m_nextId = nextId
     Me.TimerInterval = 10
@@ -313,14 +329,13 @@ Private Sub ShowAck()
             " acknowledged (Acks tab).", "info"
         SetVisible Me.btnAck, False
         Me.lblAckSum.Caption = acked & " of " & total & " addressee " & Plural(total, "command") & " acknowledged. " & _
-            "Groups are counted as the commands in them."
+            "Groups count as their commands."
         Me.sfAcks.Form.RecordSource = AckStatusSql(m_id)
     ElseIf NeedsOwnAck(m_id) Then
         ShowAlert Me, "alAck", NoAmp("Your acknowledgement is required. " & _
             AckDueText(DLookup("AckDue", "tblMessages", "MessageID=" & m_id))), "destructive"
         SetVisible Me.btnAck, True
-        Me.lblAckSum.Caption = NoAmp("Acknowledgement status is tracked for the traffic " & CommandSource() & " sends. " & _
-            "Your own acknowledgement is in the bar above.")
+        Me.lblAckSum.Caption = NoAmp("Only traffic " & CommandSource() & " sends is tracked here. Yours is in the bar above.")
     Else
         ackOn = AckOnOf(m_id)
         If IsNull(ackOn) Then
@@ -329,7 +344,7 @@ Private Sub ShowAck()
             ShowAlert Me, "alAck", "Acknowledged " & Format$(ackOn, "dd mmm yyyy hh:nn") & ".", "success"
         End If
         SetVisible Me.btnAck, False
-        Me.lblAckSum.Caption = NoAmp("Acknowledgement status is tracked for the traffic " & CommandSource() & " sends.")
+        Me.lblAckSum.Caption = NoAmp("Only traffic " & CommandSource() & " sends is tracked here.")
     End If
     If m_tab = "k" Then ShowTab
 End Sub

@@ -10,6 +10,11 @@ Option Explicit
 ' no longer ACTIVE, newest first. A click on a row opens its message on the
 ' Message page (OpenMessage), where it is acknowledged.
 '
+' The tables load from the form's timer once the page is open and sized
+' (Form_Load only sets the timer), so no subform is read or requeried while
+' the shell is still loading the page, and each table's scroll bar is
+' decided at its real height.
+'
 ' Depends on: modMessages, modMessageView, modSignIn; the kit's modKitUI,
 ' modKitUtil.
 
@@ -21,6 +26,25 @@ End Property
 
 Private Sub Form_Load()
     On Error GoTo Err_Handler
+    Me.TimerInterval = 1                    ' Form_Timer loads the page
+    Exit Sub
+Err_Handler:
+    HandleError "pgHome.Form_Load"
+End Sub
+
+' Once loaded: the tiles and the tables, once.
+Private Sub Form_Timer()
+    On Error GoTo Err_Handler
+    If Me.TimerInterval = 0 Then Exit Sub   ' a tick left over from before
+    Me.TimerInterval = 0
+    LoadPage
+    Exit Sub
+Err_Handler:
+    HandleError "pgHome.Form_Timer"
+End Sub
+
+' The tiles and the three tables, or with no data file why they are empty.
+Private Sub LoadPage()
     If Not DataLinked() Then
         Me.lblSubtitle.Caption = ""
         SetTile "tileUnread", "-", ""
@@ -40,9 +64,6 @@ Private Sub Form_Load()
     ShowHomeList Me.sfLatest, "emptyLatest", Me.sfLatest.Form.RecordsetClone.RecordCount
     Me.sfStatus.Form.RecordSource = HomeStatusSql()
     ShowHomeList Me.sfStatus, "emptyStatus", Me.sfStatus.Form.RecordsetClone.RecordCount
-    Exit Sub
-Err_Handler:
-    HandleError "pgHome.Form_Load"
 End Sub
 
 ' A row clicked: open its message.
@@ -66,9 +87,9 @@ Private Sub ShowTiles()
     n = PendingAckCount()
     SetTile "tileAck", n, "designated traffic waiting on you"
     n = OpenActionCount()
-    SetTile "tileAction", n, IIf(n = 1, "message with an action that stands", "messages with an action that stands")
+    SetTile "tileAction", n, IIf(n = 1, "message with an open action", "messages with an open action")
     n = StatusChangeCount()
-    SetTile "tileStatus", n, "amended, corrected, superseded, cancelled or expired"
+    SetTile "tileStatus", n, IIf(n = 1, "message no longer just current", "messages no longer just current")
     OwnAckProgress total, done
     Me.lblAckDone.Caption = IIf(total = 0, "", done & " of " & total & " complete")
 End Sub

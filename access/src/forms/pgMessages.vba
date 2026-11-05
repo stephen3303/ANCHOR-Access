@@ -13,6 +13,11 @@ Option Explicit
 ' read. Mark read and Mark unread change the picked one, Mark all read every
 ' message; they change only the signed-in person's own read state.
 '
+' The list loads from the form's timer once the page is open and sized
+' (Form_Load only fills the combos and sets the timer), so no subform is
+' read while the shell is still loading the page. A click in a combo's text
+' drops its list, as a click on its arrow does.
+'
 ' Depends on: modGlobals, modMessages, modMessageView, modSignIn, modUI;
 ' the kit's modKitUI, modKitUtil, modMenu.
 
@@ -28,6 +33,25 @@ End Property
 Private Sub Form_Load()
     On Error GoTo Err_Handler
     ResetCombos
+    Me.TimerInterval = 1                    ' Form_Timer loads the list
+    Exit Sub
+Err_Handler:
+    HandleError "pgMessages.Form_Load"
+End Sub
+
+' Once loaded: the list, once.
+Private Sub Form_Timer()
+    On Error GoTo Err_Handler
+    If Me.TimerInterval = 0 Then Exit Sub   ' a tick left over from before
+    Me.TimerInterval = 0
+    LoadPage
+    Exit Sub
+Err_Handler:
+    HandleError "pgMessages.Form_Timer"
+End Sub
+
+' The list, or with no data file why it is empty.
+Private Sub LoadPage()
     If Not DataLinked() Then
         ShowEmpty Me, "emptyList", True, "No data file linked", "This copy was built without the data file, so there are no messages."
         SetVisible Me.emptyList_b, False
@@ -40,9 +64,6 @@ Private Sub Form_Load()
         Exit Sub
     End If
     RefreshList 0
-    Exit Sub
-Err_Handler:
-    HandleError "pgMessages.Form_Load"
 End Sub
 
 ' Each combo on its first entry, which means no filter; the types from
@@ -77,6 +98,38 @@ Public Sub SearchFor(ByVal text As String)
     Exit Sub
 Err_Handler:
     HandleError "pgMessages.SearchFor", text
+End Sub
+
+' A combo taking the focus (a click in its text, or Tab): the kit's focus
+' ring, which the builder's GotFocus handler would otherwise set, and its
+' list dropped.
+Private Sub cboPrec_GotFocus()
+    On Error GoTo Err_Handler
+    ComboFocus Me.cboPrec
+    Exit Sub
+Err_Handler:
+    HandleError "pgMessages.cboPrec_GotFocus"
+End Sub
+
+Private Sub cboType_GotFocus()
+    On Error GoTo Err_Handler
+    ComboFocus Me.cboType
+    Exit Sub
+Err_Handler:
+    HandleError "pgMessages.cboType_GotFocus"
+End Sub
+
+Private Sub cboClass_GotFocus()
+    On Error GoTo Err_Handler
+    ComboFocus Me.cboClass
+    Exit Sub
+Err_Handler:
+    HandleError "pgMessages.cboClass_GotFocus"
+End Sub
+
+Private Sub ComboFocus(ByVal c As Control)
+    FocusRing Me, c.Name, True
+    c.Dropdown
 End Sub
 
 Private Sub cboPrec_AfterUpdate()

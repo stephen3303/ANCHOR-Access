@@ -48,7 +48,7 @@ Public Sub Build_pgHome()
     Dim c As Control, x As Long, y As Long, h As Long, tw As Long, i As Long, mw As Long
     Dim tiles As Variant, labels As Variant, glyphs As Variant
     NewForm "", 0, PAGE_W, PAGE_H
-    Ev F, "OnLoad"
+    Ev F, "OnLoad", "OnTimer"             ' OnTimer: the tiles and tables load once the page is open
     PageHeader "Home", "What needs you now: the messages you must acknowledge, the messages whose status changed " & _
         "and the latest traffic. Click a message to read it.", PAGE_PAD
     tiles = Array("tileUnread", "tileAck", "tileAction", "tileStatus")
