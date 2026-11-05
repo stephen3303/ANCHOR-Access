@@ -16,14 +16,20 @@ at all. Only Personnel admins can open this page.
 
 # Add people
 - **Add person** opens a blank form. It stays open after Save, so you can add the next person straight away.
-- **Import** adds everyone in a CSV or Excel file. The first row names the columns: First name and Last name, and any of Middle initial, Rank, Command, Email, Sign-in name and Windows account.
-- Imported people can open this app. Rows with no name, or a sign-in name or Windows account someone already has, are skipped and listed.
+- **Import** adds everyone in a CSV or Excel file. The first row names the columns: First name and Last name, and any of Middle initial, Rank, Command, Email, Sign-in name and Windows account. A contacts list exported from Outlook as CSV works as it is.
+- Add a **UPN** column (such as 1234567890.A@smil.mil) or a **DoD ID** column and Import finds each person's Windows account in Active Directory, so Windows signs them in the first time they open the app. Without one it tries their email. The UPN is kept with the person (it holds their DoD ID): only Personnel admins can see it, and Export leaves it out.
+- Someone already in Personnel isn't added twice: Import fills in only what their record is missing, such as their Windows account or email, and never changes their name, admin or Active.
+- Imported people can open this app. Rows with no name, or a Windows account someone else already has, are skipped and listed, and so are people Active Directory didn't find.
+
+# Export
+**Export** saves everyone in Personnel as a CSV file, with the same columns Import reads, plus whether they are an admin, active, and which apps they can open. It has no passwords. The file holds people's names and accounts: keep it somewhere only admins can open, and delete it when you are done.
 
 # Change someone
 Double-click them, or pick them and choose **Edit**.
 
 === directory.person | Add or change a person
 - **Windows account** is DOMAIN\user, such as NAVY\jsmith. With it saved, the person is signed in by Windows with no password.
+- **User principal name (UPN)** is their smart card sign-in, such as 1234567890.A@smil.mil; you can type just the 10-digit DoD ID. Only Personnel admins see it, and Export leaves it out. With the Windows account blank, Save finds it from the UPN in Active Directory.
 - **Sign-in name** is what they type on the sign-in screen. Leave it blank and it is made from the Windows account, or from the first initial and last name.
 - **Active** lets them sign in. Make people inactive rather than deleting them, so their past work still shows their name.
 - **Personnel admin** lets them open the Personnel page. There is always at least one active admin, and you can't remove your own admin access.
@@ -31,7 +37,9 @@ Double-click them, or pick them and choose **Edit**.
 
 # Passwords
 An app password is only needed on the sign-in screen, after Sign out or on a computer where their Windows account isn't saved.
-- To reset a forgotten password, type a new one twice and Save, then tell them.
+- To reset a forgotten password, choose **Reset password**. It makes a one-time password, shows it once and puts it on the clipboard. Give it to them in person.
+- You can also type a password twice and Save. Either way it is one-time: the first time they sign in with it, they must choose their own, so you never know their password.
+- To change your own password, use **Change my password**, not this form.
 - Passwords need 8 or more characters, and capitals count.
 
 === directory.signin | Signing in
@@ -39,6 +47,8 @@ APP signs you in with your Windows account when it is saved in Personnel and has
 - Type your sign-in name and app password, then **Sign in**.
 - Tick **Use my Windows sign-in next time** to skip this screen on this account.
 - No password yet? If this is your own Windows account, you can choose one now. Otherwise ask a Personnel admin to set one.
+- Signing in with a password an admin gave you? You are asked to choose your own before you go on.
+- **Change my password** changes your app password at any time.
 - **Copy** puts your Windows account on the clipboard, to send to an admin.
 
 === directory.setup | Setting up Personnel
@@ -46,6 +56,7 @@ APP needs the shared Personnel file and couldn't find it.
 - **Find the Personnel file** when another app already uses Personnel. It is usually in a Personnel folder beside the app's data folder.
 - **Create a new Personnel file** only for the first app set up here. You become its first admin and add the others.
 - **I'm not the admin** shows a note to send your admin, with **Copy**, then closes APP.
+- **Start with demo personnel** is for demos and testing only. It creates a Personnel file of 20 made-up people (marked DEMO DATA in their Command), sign-in names demo01 to demo20, every one with the app password pass1234. demo01 and demo02 are Personnel admins. Sign in as one of them next. Never use it for real people: to start over with real people, an admin deletes all data with the Personnel box ticked.
 
 # The site key
 Creating the file fills in a new random **site key** that locks it. You can keep it or type your site's own (12 to 20 characters). It is saved as Personnel.key in the same folder, and every app reads it from there, so nobody has to type it again. Keep Personnel.key with the file: without it the file won't open.

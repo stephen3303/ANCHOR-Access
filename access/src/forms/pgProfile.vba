@@ -115,8 +115,8 @@ Private Sub ShowDetails()
     Next
 End Sub
 
-' The Sign out card: who is signed in, and the button only when there is
-' someone to sign out.
+' The Sign out card: who is signed in, and its buttons only when there is
+' someone signed in.
 Private Sub ShowSignedIn()
     If DataLinked() And SignedInPersonID() <> 0 Then
         Me.lblSignedIn.Caption = "You're signed in as " & Replace(SignedInName(), "&", "&&") & _
@@ -125,6 +125,7 @@ Private Sub ShowSignedIn()
         Me.lblSignedIn.Caption = IIf(DataLinked(), "Nobody is signed in on this copy.", _
             "This copy was built without the data file, so nobody signs in.")
         SetEnabled Me.btnSignOut, False
+        SetEnabled Me.btnChangePwd, False
     End If
 End Sub
 

@@ -5,6 +5,7 @@ Option Explicit
 ' KitPersonnelSignOut open it with RunDialog). Checks a sign-in name and app
 ' password (PersonnelSignIn). A person with no password yet chooses one here
 ' when this Windows account is theirs; anyone else is told to ask an admin.
+' A one-time password an admin set must be replaced before signing in ends.
 ' Rows tagged why (why this Windows account wasn't signed in, and who to
 ' ask) and win (save it for next time) show only when they apply; the rows
 ' under a hidden one move up, and under the why text as it grows or shrinks.
@@ -14,9 +15,19 @@ Private Sub Form_Load()
     On Error GoTo Err_Handler
     Me.txtAccount = WinAccount()
     If Len(PersonnelSignInWhyText()) = 0 Then CollapseRow "why" Else FitWhy PersonnelSignInWhyText()
-    If WindowsAccountKnown() Or Len(WinAccount()) = 0 Then CollapseRow "win"
+    If WindowsAccountKnown() Or Len(WinAccount()) = 0 Or PersonnelUiSignInWhy() = "demo" Then CollapseRow "win"
+    If PersonnelUiSignInWhy() = "demo" Then
+        ' A demo person is made up: never offer to tie this Windows account to one.
+        Me.txtAccount.Tag = "acct": Me.btnCopyAccount.Tag = "acct"
+        CollapseRow "acct"
+    End If
     CenterOnApp Me
-    Me.txtUser.SetFocus
+    If PersonnelUiSignInWhy() = "demo" Then
+        Me.txtUser = DEMO_ADMIN_USER                ' a demo file was just made: its first admin
+        Me.txtPwd.SetFocus
+    Else
+        Me.txtUser.SetFocus
+    End If
     Exit Sub
 Err_Handler:
     LogError "dlgSignIn.Form_Load"
@@ -93,6 +104,15 @@ Private Sub btnSignIn_Click()
         Me.txtPwd.SetFocus
         Exit Sub
     End If
+    If PersonnelPasswordIsTemporary(SignedInPersonID()) Then
+        ' An admin set this password: they choose their own before going on.
+        If Not ChooseOwnPassword(pwd) Then
+            PersonnelSignOut
+            Me.txtPwd = Null
+            If Len(Me.lblError.Caption) = 0 Then Me.lblError.Caption = "Choose your own password to finish signing in."
+            Exit Sub
+        End If
+    End If
     If Me.chkWindows.Visible And Nz(Me.chkWindows, False) Then PersonnelSaveWindowsAccount
     TempVars("DialogResult") = "ok"
     DoCmd.Close acForm, Me.Name, acSaveNo
@@ -119,6 +139,21 @@ Private Function ChooseFirstPassword(ByVal user As String) As Boolean
     If Len(problem) > 0 Then Me.lblError.Caption = problem: Exit Function
     Me.txtPwd = p1
     ChooseFirstPassword = True
+End Function
+
+' The signed-in person's password is a one-time one an admin set: ask for
+' their own, twice, masked. False, with the reason shown, when they cancel
+' or it is refused.
+Private Function ChooseOwnPassword(ByVal oneTime As String) As Boolean
+    Dim p1 As Variant, p2 As Variant, problem As String
+    p1 = KitInputBox("Your password was set by an admin. Choose your own (8 or more characters).", "Choose a password", , True)
+    If IsNull(p1) Then Exit Function
+    p2 = KitInputBox("Type the same password again.", "Choose a password", , True)
+    If IsNull(p2) Then Exit Function
+    If StrComp(p1, p2, vbBinaryCompare) <> 0 Then Me.lblError.Caption = "The two passwords don't match. Try again.": Exit Function
+    problem = PersonnelChangePassword(SignedInPersonID(), oneTime, p1)
+    If Len(problem) > 0 Then Me.lblError.Caption = problem: Exit Function
+    ChooseOwnPassword = True
 End Function
 
 Private Sub btnCopyAccount_Click()

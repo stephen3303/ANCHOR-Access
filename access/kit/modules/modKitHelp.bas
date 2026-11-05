@@ -38,10 +38,14 @@ Option Explicit
 ' their next start-up. help.txt only seeds a topic: once it is in the shared
 ' table the admin's text wins, and a newer build's wording for it does not
 ' replace it (delete the topic's row to take help.txt's again at the next
-' start-up). Without the linked table both only touch zz_help.
+' start-up). A topic a newer build adds goes in after the build's topic
+' before it, wherever the admin has that one. The build keeps its own topics
+' in zz_help_build for this, since zz_help shows the shared text. Without the
+' linked table both only touch zz_help.
 
 Public Const HELP_TABLE As String = "zz_help"
 Public Const HELP_SHARED_TABLE As String = "help_topic"
+Public Const HELP_BUILD_TABLE As String = "zz_help_build"
 Private Const HELP_KEY_LEN As Long = 32
 Private Const HELP_TITLE_LEN As Long = 80
 
@@ -53,7 +57,8 @@ Private m_term As String        ' dlgHelp's search text
 ' ---------------------------------------------------------------------------
 
 ' Build step: (re)create zz_help from the help file at path, one row per
-' topic, in file order. Raises error 5 for a topic line without "|", an
+' topic, in file order, and zz_help_build as a copy of it that KitHelpSync
+' seeds the shared table from. Raises error 5 for a topic line without "|", an
 ' empty, long or repeated key, or a long title, naming the line.
 Public Sub LoadHelpTopics(ByVal path As String)
     Dim db As DAO.Database, rs As DAO.Recordset, lines As Variant, i As Long, s As String
@@ -89,6 +94,10 @@ Public Sub LoadHelpTopics(ByVal path As String)
     Next
     If n > 0 Then AddTopic rs, key, title, n, body
     rs.Close
+    On Error Resume Next
+    db.TableDefs.Delete HELP_BUILD_TABLE
+    On Error GoTo 0
+    db.Execute "SELECT * INTO " & HELP_BUILD_TABLE & " FROM " & HELP_TABLE, dbFailOnError
 End Sub
 
 Private Sub AddTopic(rs As DAO.Recordset, ByVal key As String, ByVal title As String, ByVal n As Long, ByVal body As String)
@@ -130,23 +139,51 @@ Public Function HelpSharedTableSql(Optional ByVal tableName As String = HELP_SHA
         "updated_at DATETIME, updated_by TEXT(" & STAMP_USER_LEN & "))"
 End Function
 
-' Start-up, once the data file is found: add the topics zz_help has (the
-' build's help.txt) that the shared table lacks, then copy the shared table
-' into zz_help. Returns how many topics it added to the shared table; does
-' nothing and returns 0 when the app has no shared table or no zz_help.
+' Start-up, once the data file is found: add the build's topics (help.txt,
+' kept in zz_help_build) that the shared table lacks, then copy the shared
+' table into zz_help. Each added topic goes in just after the build's topic
+' before it, at that topic's place in the shared table (first when there is
+' none), and the topics after it move down one. Returns how many topics it
+' added to the shared table; does nothing and returns 0 when the app has no
+' shared table or no zz_help. A build from before zz_help_build seeds from
+' zz_help.
 Public Function KitHelpSync(Optional ByVal tableName As String = HELP_SHARED_TABLE) As Long
-    Dim db As DAO.Database, n As Long, e As Long, d As String
+    Dim db As DAO.Database, ws As DAO.Workspace, src As String, rs As DAO.Recordset
+    Dim key As String, prevKey As String, after As Long, n As Long, e As Long, d As String
     Set db = CurrentDb
     If Not HasHelpTable(db, tableName) Or Not HasHelpTable(db, HELP_TABLE) Then Exit Function
-    On Error Resume Next
-    db.Execute "INSERT INTO " & tableName & " (topic_key, title, sort_order, body, search_text, updated_at, updated_by) " & _
-        "SELECT h.topic_key, h.title, h.sort_order, h.body, h.search_text, Now(), 'help.txt' FROM " & HELP_TABLE & _
-        " AS h WHERE h.topic_key NOT IN (SELECT topic_key FROM " & tableName & ")", dbFailOnError
-    e = Err.Number: d = Err.Description
-    If e = 0 Then n = db.RecordsAffected
-    On Error GoTo 0
-    ' 3022: someone else's start-up added the same topics a moment earlier.
-    If e <> 0 And e <> 3022 Then Err.Raise e, "modKitHelp.KitHelpSync", d
+    src = HELP_TABLE
+    If HasHelpTable(db, HELP_BUILD_TABLE) Then src = HELP_BUILD_TABLE
+    Set ws = DBEngine.Workspaces(0)
+    Set rs = db.OpenRecordset("SELECT topic_key, title, body, search_text FROM " & src & " ORDER BY sort_order", dbOpenSnapshot)
+    Do Until rs.EOF
+        key = rs!topic_key
+        If DCount("*", tableName, "topic_key=" & SqlText(key)) = 0 Then
+            after = 0
+            If Len(prevKey) > 0 Then after = Nz(DLookup("sort_order", tableName, "topic_key=" & SqlText(prevKey)), 0)
+            ws.BeginTrans
+            On Error Resume Next
+            db.Execute "UPDATE " & tableName & " SET sort_order=sort_order+1 WHERE sort_order>" & after, dbFailOnError
+            If Err.Number = 0 Then
+                db.Execute "INSERT INTO " & tableName & " (topic_key, title, sort_order, body, search_text, updated_at, updated_by) " & _
+                    "SELECT topic_key, title, " & (after + 1) & ", body, search_text, Now(), 'help.txt' FROM " & src & _
+                    " WHERE topic_key=" & SqlText(key), dbFailOnError
+            End If
+            e = Err.Number: d = Err.Description
+            On Error GoTo 0
+            If e = 0 Then
+                ws.CommitTrans
+                n = n + 1
+            Else
+                ws.Rollback
+                ' 3022: someone else's start-up added the same topic a moment earlier.
+                If e <> 3022 Then rs.Close: Err.Raise e, "modKitHelp.KitHelpSync", d
+            End If
+        End If
+        prevKey = key
+        rs.MoveNext
+    Loop
+    rs.Close
     db.Execute "DELETE FROM " & HELP_TABLE, dbFailOnError
     db.Execute "INSERT INTO " & HELP_TABLE & " (topic_key, title, sort_order, body, search_text) " & _
         "SELECT topic_key, title, sort_order, body, search_text FROM " & tableName, dbFailOnError
