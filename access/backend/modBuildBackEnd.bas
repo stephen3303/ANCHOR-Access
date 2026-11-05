@@ -325,7 +325,7 @@ Private Sub LoadTsv(db As DAO.Database, ByVal tbl As String, ByVal path As Strin
                     Case "MsgKey"
                         If tbl = "tblMessages" Then rs!MsgKey = v Else rs!MessageID = ParentID(db, "tblMessages", "MessageID", "MsgKey", v)
                     Case "SubName"
-                        rs!SubID = ParentID(db, "tblSubscriptions", "SubID", "SubName", v)
+                        If tbl = "tblSubscriptions" Then rs!SubName = v Else rs!SubID = ParentID(db, "tblSubscriptions", "SubID", "SubName", v)
                     Case "GroupName"
                         rs!GroupID = GroupIdFor(db, CStr(v))
                     Case Else

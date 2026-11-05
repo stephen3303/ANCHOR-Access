@@ -39,6 +39,7 @@ New-Item -ItemType Directory -Force $OutDir | Out-Null
 $OutDir = (Resolve-Path $OutDir).Path
 $fe = Join-Path $OutDir 'ANCHOR.accdb'
 $accde = Join-Path $OutDir 'ANCHOR.accde'
+$ProjectName = 'ANCHORApp'   # the VBA project's name; never 'ANCHOR' (see below)
 if ($BackEnd) {
     if (-not (Test-Path $BackEnd)) { throw "No shared data file at $BackEnd" }
     $BackEnd = (Resolve-Path $BackEnd).Path
@@ -71,6 +72,10 @@ try {
         Remove-Item $fe -ErrorAction SilentlyContinue
         $acc.NewCurrentDatabase($fe)
     }
+    # Access names the VBA project after the file, so ANCHOR.accdb would make a
+    # project called ANCHOR, which hides the kit's Anchor procedure (VBA ignores
+    # case): "Expected variable or procedure, not project". Give it its own name.
+    if ($acc.VBE.ActiveVBProject.Name -ne $ProjectName) { $acc.VBE.ActiveVBProject.Name = $ProjectName }
 
     # The kit first, then its text-measure adapter, the app's modules and the
     # build palette.

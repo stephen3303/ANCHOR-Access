@@ -25,6 +25,10 @@ Option Explicit
 ' The Message page's key (frmMain.PageForm).
 Public Const PAGE_MESSAGE As String = "message"
 
+' The demo annotation beside any classification above UNCLASSIFIED (see
+' ClassificationMarking at the end).
+Public Const DEMO_MARKING_NOTE As String = "DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED."
+
 ' Rank of a precedence, highest first: FLASH 1, IMMEDIATE 2, PRIORITY 3,
 ' ROUTINE 4, anything else 5. For sorting (PrecedenceRankSql in queries).
 Public Function PrecedenceRank(ByVal p As Variant) As Long
@@ -246,7 +250,6 @@ End Function
 ' demonstration only (Stephen, 2026-11-05): every data file holds synthetic
 ' content. Wherever a level above UNCLASSIFIED shows (a list row, the message
 ' view, a print, a briefing, a draft), its demo annotation shows beside it.
-Public Const DEMO_MARKING_NOTE As String = "DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED."
 
 ' True for a classification above UNCLASSIFIED (anything but UNCLASSIFIED or blank).
 Public Function IsMarkedAboveUnclass(ByVal classif As Variant) As Boolean
