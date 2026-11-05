@@ -1,0 +1,10 @@
+ItemText	SortOrder	IsActive
+Review new messages	1	1
+Review open action items	2	1
+Check pending acknowledgements	3	1
+Check ongoing topics	4	1
+Update watch notes	5	1
+Review system alerts	6	1
+Validate subscriptions	7	1
+Confirm handover with outgoing watch	8	1
+Finalize turnover package	9	1

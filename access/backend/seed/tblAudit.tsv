@@ -1,0 +1,13 @@
+LoggedAt	UserName	Action	Resource	Classification	Result	Device	Location	Details
+2026-10-24 13:10:00	System	Integrity Check	Message store (1,842 records)	UNCLASSIFIED	Success	ANCHOR-WS-05	COMSUBLANT N6	All record hashes match ingestion values.
+2026-10-24 14:02:00	Unknown	Login	User Authentication (CAC)	UNCLASSIFIED	Failed	ANCHOR-WS-04	COMSUBLANT N6	Certificate revoked. Access denied.
+2026-10-24 15:15:00	TNguyen	Login	User Authentication (CAC)	UNCLASSIFIED	Success	ANCHOR-OPS-01	COMSUBLANT N6	CAC/PKI certificate validated.
+2026-10-24 16:21:00	System	Ingest	C2OIX feed (14 messages)	UNCLASSIFIED	Success	ANCHOR-WS-02	COMSUBLANT N6	Source artifacts stored immutably. Hashes recorded.
+2026-10-24 16:50:00	JSmith	Export	Messages (Filtered Set)	UNCLASSIFIED	Warning	ANCHOR-WS-05	COMSUBLANT N6	Export included 2 superseded messages; user warned.
+2026-10-24 17:12:00	RWalker	Search	Keyword: “readiness”	UNCLASSIFIED	Success	ANCHOR-OPS-01	COMSUBLANT N6	Search returned 45 results.
+2026-10-24 17:20:00	System	Ack Received	Message (COMSUBLANT 080/26)	UNCLASSIFIED	Success	ANCHOR-WS-03	COMSUBLANT N6	Acknowledgement received from USS Ironfin (SSN-903).
+2026-10-24 17:40:00	ASanchez	Generate Report	Acknowledgement Report	UNCLASSIFIED	Success	ANCHOR-WS-02	COMSUBLANT N6	Report generated for COMSUBLANT 080/26.
+2026-10-24 18:15:00	MKelly	Request Subscription	Cybersecurity Controls	UNCLASSIFIED	Success	ANCHOR-OPS-01	COMSUBLANT N6	Subscription request routed to approver.
+2026-10-24 18:32:00	JSmith	View	Message (NAVADMIN 236/26)	UNCLASSIFIED	Success	ANCHOR-WS-04	COMSUBLANT N6	Message opened in reader.
+2026-10-24 18:45:00	ITChief	Create Briefing	Watch Turnover Briefing	UNCLASSIFIED	Success	ANCHOR-WS-03	COMSUBLANT N6	Briefing created from 8 messages.
+2026-10-24 18:58:00	LTaylor	Download	Message (COMSUBLANT 078/26)	UNCLASSIFIED	Success	ANCHOR-OPS-01	COMSUBLANT N6	Message downloaded to local cache for offline access. File hash verified.

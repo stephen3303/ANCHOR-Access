@@ -1,0 +1,9 @@
+MsgKey	AddrName	AddrRole	AddrKind
+comsublant-078-26	All COMSUBLANT Units	TO	group
+comsublant-078-26	COMSUBFOR	INFO	command
+comsublant-078-26	SUBRON Commanders	INFO	group
+navadmin-236-26	ALSUBS	TO	group
+comsublant-080-26	All COMSUBLANT Units	TO	group
+comsublant-080-26	COMSUBFOR	INFO	command
+comsublant-074-26	Pilot Unit (SSN)	TO	command
+comsublant-074-26	SUBRON 4	INFO	command

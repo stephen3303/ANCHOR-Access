@@ -1,0 +1,9 @@
+SubKey	SubName	Category	Description	MsgTypes	Originators	Keywords	Precedences	IsMandatory	DefaultFrequency	IsActive
+sub-comsublant-cmd	COMSUBLANT Command Traffic	Submarine Warfare	All traffic from COMSUBLANT to assigned units. Assigned by command.	COMSUBLANT MSG; SAFETY MSG	COMSUBLANT			1	Real-time	1
+sub-flash-immediate	FLASH and IMMEDIATE Precedence	Readiness	Any FLASH or IMMEDIATE traffic addressed to the unit. Mandatory by precedence rule.				FLASH; IMMEDIATE	1	Real-time	1
+sub-deploy-readiness	Deployment Readiness	Readiness	Deployment timelines, readiness reporting, checklists and validation procedures.	COMSUBLANT MSG; OPNAVINST		readiness; deployment		0	Real-time	1
+sub-cyber	Cybersecurity Controls	Cybersecurity	Cyber policy, alerts, and implementation guidance.	NAVADMIN; OPNAVINST		cybersecurity		0	Daily Digest	1
+sub-personnel	Personnel Policy Updates	Personnel	Personnel policies, assignments and leave.	NAVADMIN; ALNAV				0	Daily Digest	1
+sub-training	Training Pipeline	Training & Education	Training pipeline schedules and qualification standards.	NAVADMIN; COMSUBFOR INST				0	Weekly	1
+sub-maintenance	Maintenance Policy	Maintenance	Maintenance policy and availability reporting.	NAVSEAINST				0	Weekly	1
+sub-usw-exercise	Undersea Warfare Exercises	Submarine Warfare	Exercise planning conferences and CONPLANs.	FLEET MSG	USFF			0	Daily Digest	1

@@ -1,0 +1,7 @@
+RoleCode	RoleName	Detail	SortOrder
+VIEW	Message Viewer	View messages and attachments	1
+BRIEF	Briefing Creator	Create and customize briefings	2
+REQUEST	Subscription Requester	Request subscriptions for approval	3
+REPORT	Report Viewer	Acknowledgement and traffic reports	4
+APPROVER	Subscription Approver	Approve unit subscription requests	5
+ADMIN	System Admin	Manage unit users and settings	6

@@ -1,0 +1,25 @@
+GroupName	CommandName
+ALSUBS	Pilot Unit (SSN)
+ALSUBS	USS Stonefish (SSN-901)
+ALSUBS	USS Ironfin (SSN-903)
+ALSUBS	USS Lanternfish (SSN-905)
+ALSUBS	USS Thornback (SSN-907)
+ALSUBS	USS Ghostfin (SSN-909)
+All COMSUBLANT Units	Pilot Unit (SSN)
+All COMSUBLANT Units	USS Stonefish (SSN-901)
+All COMSUBLANT Units	USS Ironfin (SSN-903)
+All COMSUBLANT Units	USS Lanternfish (SSN-905)
+All COMSUBLANT Units	SUBRON 4
+All COMSUBLANT Units	SUBRON 6
+SUBRON Commanders	SUBRON 4
+SUBRON Commanders	SUBRON 6
+All Submarine Force Units	Pilot Unit (SSN)
+All Submarine Force Units	USS Stonefish (SSN-901)
+All Submarine Force Units	USS Ironfin (SSN-903)
+All Submarine Force Units	USS Lanternfish (SSN-905)
+All Submarine Force Units	USS Thornback (SSN-907)
+All Submarine Force Units	USS Ghostfin (SSN-909)
+All Submarine Force Units	SUBRON 4
+All Submarine Force Units	SUBRON 6
+All Submarine Force Units	COMSUBLANT
+All Submarine Force Units	COMSUBPAC

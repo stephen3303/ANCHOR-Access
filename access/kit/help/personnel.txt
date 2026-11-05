@@ -1,0 +1,54 @@
+Personnel help topics for the kit's Personnel screens (modPersonnelUI).
+Copy the topics below into the app's src\help\help.txt. The keys match the
+HelpTopic of dlgPersonnel, dlgPerson, dlgSignIn and dlgPersonnelSetup, so F1
+on those screens opens them. The keys start with directory, not personnel,
+so they don't clash with an app page keyed personnel. Change APP to the app's
+name.
+
+=== directory | Personnel
+One shared Personnel file holds everyone who can use the Navy apps built on
+this kit. Your Windows sign-in finds you in it, so most days you don't sign in
+at all. Only Personnel admins can open this page.
+
+# Find someone
+- Type part of a name, rank, sign-in name or Windows account in the search box.
+- **Can open** says whether they may open this app. **Status** is Admin, Active or Inactive.
+
+# Add people
+- **Add person** opens a blank form. It stays open after Save, so you can add the next person straight away.
+- **Import** adds everyone in a CSV or Excel file. The first row names the columns: First name and Last name, and any of Middle initial, Rank, Command, Email, Sign-in name and Windows account.
+- Imported people can open this app. Rows with no name, or a sign-in name or Windows account someone already has, are skipped and listed.
+
+# Change someone
+Double-click them, or pick them and choose **Edit**.
+
+=== directory.person | Add or change a person
+- **Windows account** is DOMAIN\user, such as NAVY\jsmith. With it saved, the person is signed in by Windows with no password.
+- **Sign-in name** is what they type on the sign-in screen. Leave it blank and it is made from the Windows account, or from the first initial and last name.
+- **Active** lets them sign in. Make people inactive rather than deleting them, so their past work still shows their name.
+- **Personnel admin** lets them open the Personnel page. There is always at least one active admin, and you can't remove your own admin access.
+- **Can open APP** controls this app only. Each app keeps its own list.
+
+# Passwords
+An app password is only needed on the sign-in screen, after Sign out or on a computer where their Windows account isn't saved.
+- To reset a forgotten password, type a new one twice and Save, then tell them.
+- Passwords need 8 or more characters, and capitals count.
+
+=== directory.signin | Signing in
+APP signs you in with your Windows account when it is saved in Personnel and has access to APP. This screen shows when it isn't, when it has no access to APP or is turned off, or after **Sign out**. It names the Personnel admins to ask.
+- Type your sign-in name and app password, then **Sign in**.
+- Tick **Use my Windows sign-in next time** to skip this screen on this account.
+- No password yet? If this is your own Windows account, you can choose one now. Otherwise ask a Personnel admin to set one.
+- **Copy** puts your Windows account on the clipboard, to send to an admin.
+
+=== directory.setup | Setting up Personnel
+APP needs the shared Personnel file and couldn't find it.
+- **Find the Personnel file** when another app already uses Personnel. It is usually in a Personnel folder beside the app's data folder.
+- **Create a new Personnel file** only for the first app set up here. You become its first admin and add the others.
+- **I'm not the admin** shows a note to send your admin, with **Copy**, then closes APP.
+
+# The site key
+Creating the file fills in a new random **site key** that locks it. You can keep it or type your site's own (12 to 20 characters). It is saved as Personnel.key in the same folder, and every app reads it from there, so nobody has to type it again. Keep Personnel.key with the file: without it the file won't open.
+
+# After everyone was deleted
+When an admin deleted all data and ticked the Personnel box, the Personnel file is still there but has nobody in it. The next person to open an app sees **Create the first admin**: type your name, rank and app password, and you become the Personnel admin for every app. Then add the others again, or **Import** them. If you are not the admin, choose **I'm not the admin** instead. A backup copy of the old file and its key is in the Backups folder beside it.

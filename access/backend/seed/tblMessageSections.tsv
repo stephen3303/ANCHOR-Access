@@ -1,0 +1,67 @@
+MsgKey	SortOrder	Heading	Body
+comsublant-078-26	1	Purpose	To establish standardized deployment readiness reporting for all COMSUBLANT units. This message supersedes COMSUBLANT 061/26 and provides updated timelines, a reporting template, and validation procedures.
+comsublant-078-26	2	Background	Recent assessments identified inconsistent readiness reporting across squadrons. The updated procedure improves data accuracy and aligns reporting with the force readiness tracking cycle.
+comsublant-078-26	3	Action	Commanding Officers shall submit the enclosed reporting template NLT 07 NOV 2026 via prescribed channels. Units shall complete data validation and squadron review before submission. Acknowledge receipt of this message in ANCHOR.
+comsublant-078-26	4	Point of Contact	COMSUBLANT N3 Readiness Division, DSN 312-555-0101, n3readiness@example.mil
+comsublant-078-26	5	Enclosures	Deployment Readiness Reporting Template (Excel)\nReporting Procedures Guide\nFrequently Asked Questions
+navadmin-236-26	1	Purpose	To issue updated cybersecurity controls and monitoring requirements for operational networks. This corrected copy fixes the implementation date in paragraph 3 of NAVADMIN 235/26.
+navadmin-236-26	2	Background	Updated threat assessments require tighter configuration baselines and continuous monitoring on afloat and ashore networks.
+navadmin-236-26	3	Action	Information System Security Managers shall implement the enclosed controls NLT 13 NOV 2026 and report completion through the chain of command.
+navadmin-236-26	4	Point of Contact	OPNAV N2N6 Cyber Policy Branch, DSN 312-555-0202
+navadmin-234-26	1	Purpose	To provide updated force health protection guidance for all fleet units in support of operational readiness.
+navadmin-234-26	2	Background	Recent developments require updated procedures to ensure continued compliance with Department of the Navy health protection standards.
+navadmin-234-26	3	Action	Commanding Officers shall review the enclosed guidance and implement applicable measures IAW references (a) through (c).
+navadmin-234-26	4	Point of Contact	OPNAV N1 Force Health Protection Division, DSN 312-555-0404
+comsublant-080-26	1	Purpose	To direct a one-day safety stand-down for all COMSUBLANT units.
+comsublant-080-26	2	Background	A review of recent mishap reports identified common contributing factors in maintenance and watchstanding practices.
+comsublant-080-26	3	Action	Commanding Officers shall conduct the stand-down using the enclosed agenda NLT 31 OCT 2026 and report completion to the squadron.
+comsublant-080-26	4	Point of Contact	COMSUBLANT Safety Office, DSN 312-555-0303
+comsublant-080-26	5	Enclosures	Stand-Down Agenda
+navadmin-235-26	1	Purpose	To issue updated cybersecurity controls for operational networks.
+navadmin-235-26	2	Background	Updated threat assessments require tighter configuration baselines.
+navadmin-235-26	3	Action	Implement the enclosed controls NLT 30 OCT 2026.
+navadmin-235-26	4	Point of Contact	OPNAV N2N6 Cyber Policy Branch, DSN 312-555-0202
+navadmin-228-26	1	Purpose	To announce changes to assignment timelines and detailer guidance.
+navadmin-228-26	2	Background	Rotation cycle feedback identified a need for earlier notice of assignment changes.
+navadmin-228-26	3	Action	Commands shall brief affected personnel and update rotation plans before the next detailing window.
+navadmin-228-26	4	Point of Contact	OPNAV N1 Assignment Policy, DSN 312-555-0505
+navadmin-231-26	1	Purpose	To publish revised training schedules for submarine and cybersecurity courses.
+navadmin-231-26	2	Background	Instructor availability and course capacity changed for the next two quarters.
+navadmin-231-26	3	Action	Training Officers shall update unit training schedules and confirm seats with the schoolhouse.
+navadmin-231-26	4	Point of Contact	NETC Pipeline Management, DSN 312-555-0606
+comsubfor-3500-1	1	Purpose	To establish standard qualification requirements for submarine watch teams.
+comsubfor-3500-1	2	Background	Qualification practices varied between squadrons, complicating crew swaps.
+comsubfor-3500-1	3	Action	Units shall align watch team qualification programs to the enclosed standards within 90 days.
+comsubfor-3500-1	4	Point of Contact	COMSUBFOR N7 Training, DSN 312-555-0707
+navseainst-4790-8	1	Purpose	To update maintenance availability reporting procedures.
+navseainst-4790-8	2	Background	Availability status reporting needs a common format across activities.
+navseainst-4790-8	3	Action	Maintenance activities shall adopt the updated format at the start of the next availability.
+navseainst-4790-8	4	Point of Contact	NAVSEA Fleet Maintenance, DSN 312-555-0808
+comsublant-074-26	1	Purpose	To amend force protection measures for the upcoming port visit.
+comsublant-074-26	2	Background	Updated host-nation guidance changes liberty boundaries and reporting times.
+comsublant-074-26	3	Action	Commanding Officer shall brief the crew on revised measures before arrival.
+comsublant-074-26	4	Point of Contact	COMSUBLANT N3 Current Operations, DSN 312-555-0909
+usff-2026-11	1	Purpose	To announce the initial planning conference for the next undersea warfare exercise series.
+usff-2026-11	2	Background	Exercise objectives were approved by the Fleet Commander.
+usff-2026-11	3	Action	Participating units shall nominate planners and coordinate with Operations.
+usff-2026-11	4	Point of Contact	USFF N7 Exercises, DSN 312-555-1010
+alnav-079-26	1	Purpose	To publish holiday leave policy and cancel ALNAV 071/26.
+alnav-079-26	2	Background	Leave dates were adjusted to align with the published holiday schedule.
+alnav-079-26	3	Action	Commands shall plan holiday leave periods IAW this message.
+alnav-079-26	4	Point of Contact	SECNAV Personnel Policy, DSN 312-555-1111
+alnav-076-26	1	Purpose	To remind commands of official records retention responsibilities.
+alnav-076-26	2	Background	Local copies of official messages are not a substitute for the official record.
+alnav-076-26	3	Action	Commands shall review local records practices and train personnel on retention requirements.
+alnav-076-26	4	Point of Contact	DON Records Management, DSN 312-555-1313
+navadmin-223-26	1	Purpose	To request environmental compliance data from all activities.
+navadmin-223-26	2	Background	Annual compliance reporting.
+navadmin-223-26	3	Action	Submit data NLT 20 OCT 2026. This message expires after that date.
+navadmin-223-26	4	Point of Contact	OPNAV N45, DSN 312-555-1212
+comsublant-061-26	1	Purpose	To provide interim readiness reporting guidance pending a standardized template.
+comsublant-061-26	2	Background	Squadrons requested interim direction while the standardized template is developed.
+comsublant-061-26	3	Action	Continue using squadron formats until further notice.
+comsublant-061-26	4	Point of Contact	COMSUBLANT N3 Readiness Division, DSN 312-555-0101
+alnav-071-26	1	Purpose	To publish holiday leave policy.
+alnav-071-26	2	Background	Annual holiday leave guidance.
+alnav-071-26	3	Action	Commands shall plan holiday leave periods IAW this message.
+alnav-071-26	4	Point of Contact	SECNAV Personnel Policy, DSN 312-555-1111
