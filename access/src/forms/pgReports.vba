@@ -91,7 +91,7 @@ Private Sub RefreshAll()
     n = RptRun(m_period)
     RptTotals nAcked, nOwed, nOverdue
     Me.tileMsgs = RptMessageCount(m_period)
-    If nOwed > 0 Then Me.tileRate = nAcked / nOwed Else Me.tileRate = Null
+    If nOwed > 0 Then Me.tileRate = nAcked / nOwed Else Me.tileRate = "-"   ' nothing owed: a dash, not a blank
     Me.tileOwed = nOwed - nAcked
     Me.tileOverdue = nOverdue
     Me.sfAck.Form.RecordSource = RptAckSql()

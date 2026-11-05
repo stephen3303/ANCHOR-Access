@@ -298,7 +298,7 @@ The last step of every chain is the release step. Its holder releases the draft 
 The drafter can **Withdraw** a draft before release; it is kept for the record. The **Log** tab lists every step taken on the draft, newest first. The log is only ever added to, and every action is in the audit trail.
 
 === templates | Templates
-Reusable messages with fields the drafter fills in. Write a field as **{{ Name }}** in the subject, the addressees or the text.
+Reusable messages with fields the drafter fills in. Write a field as **{{ Name }}** in the subject, the addressees or the text. Open it with **Templates** at the top of the **Drafting** page.
 
 # Versions
 A template has numbered versions. A new version is **Inactive**, and only an inactive version can change. **Activate** makes it the version drafts start from and retires the name's earlier active version. **Retire** stops new drafts starting from it. **New version** copies a version, inactive, to edit. Drafts already started keep their text.
@@ -313,7 +313,7 @@ ANCHOR admins add, edit, activate and retire templates. Everyone starts drafts f
 Each field has rules, set on the **Fields** tab with **Field rules** (or a double-click): whether a draft must fill it, a maximum length (0 for no limit), a default filled in for new drafts, and a hint shown when the drafter fills it in. The fields follow the tags: saving the template adds a field for a new tag and drops one whose tag is gone.
 
 === routing | Admin: Routing
-How outgoing traffic is routed and released. For ANCHOR admins; open it from the **Admin** page.
+How outgoing traffic is routed and released. For ANCHOR admins; open it with **Routing** at the top of the **Admin** page.
 
 # Workflows
 A draft takes the most specific active workflow for its message type and originator: one naming its type comes before one naming only its originator, and one naming neither matches anything. Each workflow is a chain of steps, each held by a person from the Personnel file; the last step, and only the last, releases. A step whose holder is turned off or has left strands the chain until you name the relief. Changes to a chain apply to drafts submitted from then on.

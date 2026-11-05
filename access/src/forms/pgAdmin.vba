@@ -30,7 +30,7 @@ Option Explicit
 ' modKitUI, modKitUtil, modMenu, modPersonnel.
 
 Private Const MSG_TITLE As String = "Admin"
-Private Const ROLE_SLOTS As Long = 6            ' chkRole1..6 (modBuildAdmin)
+Private Const ROLE_SLOTS As Long = 8            ' chkRole1..8 (modBuildAdmin)
 
 Private m_tab As String         ' "access", "users" or "types"
 Private m_ok As Boolean         ' a data file is linked
@@ -41,7 +41,7 @@ Private m_typeId As Long        ' the open message type (0: none, or a new one)
 Private m_typeNew As Boolean    ' the type form holds a new type not saved yet
 Private m_typeSnap As String    ' the open type as loaded (TypeSnap)
 Private m_roleCount As Long     ' role slots in use
-Private m_roleCode(1 To 6) As String    ' the role code of each slot
+Private m_roleCode(1 To 8) As String    ' the role code of each slot
 
 ' The help topic for the open tab (KitHelp).
 Public Property Get HelpTopic() As String
@@ -58,11 +58,12 @@ Private Sub Form_Load()
     m_ok = DataLinked()
     m_admin = (Not m_ok) Or IsAnchorAdmin()
     If Not m_admin Then
-        ' An approver only: no tabs to pick from.
+        ' An approver only: no tabs to pick from, and no Routing.
         For Each c In Me.Controls
             If c.Name Like "segTab_*" Then SetVisible c, False
         Next
     End If
+    SetVisible Me.btnRouting, m_ok And m_admin
     If m_ok Then
         Me.sfQueue.Form.RecordSource = PendingSubsSql()
         Me.sfRules.Form.RecordSource = AdmRulesSql()
@@ -257,6 +258,15 @@ Private Function PickedRequest() As Long
     PickedRequest = Nz(Me.sfQueue.Form.txtSel, 0)
     If PickedRequest = 0 Then KitMsgBox "Pick a request in the queue first.", vbInformation, MSG_TITLE
 End Function
+
+' Admin: Routing, a page of its own (System Admins only).
+Private Sub btnRouting_Click()
+    On Error GoTo Err_Handler
+    NavTo "routing"
+    Exit Sub
+Err_Handler:
+    HandleError "pgAdmin.btnRouting_Click"
+End Sub
 
 Private Sub btnApprove_Click()
     Dim id As Long, what As String, problem As String

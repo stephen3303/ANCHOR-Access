@@ -193,6 +193,15 @@ Err_Handler:
     HandleError "pgDrafting.btnNew_Click", tid
 End Sub
 
+' Templates (a page with no sidebar item).
+Private Sub btnTemplates_Click()
+    On Error GoTo Err_Handler
+    NavTo "templates"
+    Exit Sub
+Err_Handler:
+    HandleError "pgDrafting.btnTemplates_Click"
+End Sub
+
 Private Sub btnSave_Click()
     On Error GoTo Err_Handler
     SaveClicked

@@ -23,7 +23,8 @@ Option Explicit
 '
 ' Roles (tblRoles, the web app's names): VIEW Message Viewer, REQUEST
 ' Subscription Requester, BRIEF Briefing Creator, REPORT Report Viewer,
-' APPROVER Subscription Approver, ADMIN System Admin. tblPeople.IsAdmin is
+' APPROVER Subscription Approver, RELEASE Designated Release Authority (may
+' release a draft on a step they hold), ADMIN System Admin. tblPeople.IsAdmin is
 ' kept in step with ADMIN, so the kit-style admin checks read one column.
 '
 ' The first Personnel admin to open a new data file (tblPeople still empty)
@@ -64,6 +65,8 @@ Public Function PageAllowed(ByVal key As String) As Boolean
         Case "reports": PageAllowed = HasRole("REPORT") Or IsAnchorAdmin()
         Case "admin": PageAllowed = HasRole("APPROVER") Or IsAnchorAdmin()
         Case "audit": PageAllowed = IsAnchorAdmin()
+        Case "drafting", "templates": PageAllowed = True
+        Case "routing": PageAllowed = IsAnchorAdmin()
     End Select
 End Function
 

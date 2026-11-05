@@ -19,7 +19,7 @@ Option Explicit
 ' Each tab's controls are listed in a hidden label (GroupSince) that the page
 ' shows and hides together. Users and Message types are for System Admins;
 ' a Subscription Approver sees only the first tab, with no tabs shown.
-' (The web app's Routing & Release tab comes in a later build.)
+' The web app's Routing & Release tab is the Routing page (btnRouting).
 '
 ' The list pages' pattern: the list card on the left and a 360px detail card
 ' on the right.
@@ -31,7 +31,7 @@ Option Explicit
 Private Const DETAIL_W As Long = 5400            ' the detail cards, 360 px
 Private Const RULES_W As Long = 8100             ' the alert rules card, 540 px
 Private Const TAB_Y As Long = 1860               ' the tabs' content top, 124 px
-Private Const ROLE_SLOTS As Long = 6             ' role check boxes on the Users tab (tblRoles has 6)
+Private Const ROLE_SLOTS As Long = 8             ' role check boxes on the Users tab (tblRoles has 7)
 
 ' The list cards' width beside a detail card.
 Private Function AdmListW() As Long
@@ -93,12 +93,16 @@ End Function
 
 ' The page: the header, the tabs, then each tab's controls (see the top).
 Public Sub Build_pgAdmin()
-    Dim before As Object
+    Dim before As Object, c As Control
     NewForm "", 0, PAGE_W, PAGE_H
     Ev F, "OnLoad"
     PageHeader "Admin", "Approve subscription requests, review the rules that make delivery mandatory, and manage ANCHOR users, " & _
         "their roles and the message types.", PAGE_PAD
     Segmented "segTab", "", PAGE_PAD, px(80), px(456), "access|Approvals & Access;users|Users;types|Message types", px(32), "TabChanged"
+    ' Admin: Routing (the drafting chains, release authority, command
+    ' settings) is a page of its own; System Admins open it from here.
+    Set c = Btn("btnRouting", "Routing", PAGE_W - PAGE_PAD - px(112), px(24), px(112), px(32), "outline")
+    c.ControlTipText = "Workflows, release authority and command settings for drafting": Anchor c, 1, 0
 
     Set before = NamesNow()
     BuildAccessTab
@@ -151,6 +155,7 @@ End Sub
 ' person on the right.
 Private Sub BuildUsersTab()
     Dim c As Control, i As Long, x As Long, y As Long, h As Long, fx As Long, fw As Long, hw As Long, lw As Long, ry As Long
+    Dim k As String
     y = TAB_Y: lw = AdmListW()
     Set c = PersonPickBox("txtPerson", "", PAGE_PAD, y, px(300), px(30))
     Ev c, "OnKeyDown"
@@ -158,10 +163,14 @@ Private Sub BuildUsersTab()
     c.ControlTipText = "Give the picked person ANCHOR access as Message Viewer and Subscription Requester"
     Lbl "lblAddHint", "Only people in the Personnel file can be picked.", PAGE_PAD + px(432), y, lw - px(432), px(30), _
         9, False, CLR_MUTED_FG
+    ' Everything over and in the detail card keeps to the window's right edge
+    ' as the list widens (AnchorBuilt); the Save buttons also keep to its bottom.
     x = AdmDetailX()
+    k = BuiltNames()
     Toggle "tgShowOff", "", x + px(4), y + px(5), px(36), px(20), "ShowOffChanged"
     Link "lbltgShowOff", "Show deactivated people", x + px(52), y + px(1), DETAIL_W - px(52), px(28), _
         "=ToggleSwitch([Form],""tgShowOff"")", 9, CLR_FG
+    AnchorBuilt k, 1, 0
 
     y = y + px(44): h = PAGE_H - y - px(16)
     Card "Users", "Users", PAGE_PAD, y, lw, h, , 2, 2
@@ -171,6 +180,7 @@ Private Sub BuildUsersTab()
     ' The picked person.
     fx = x + px(16): fw = DETAIL_W - px(32): hw = (fw - px(8)) \ 2
     Card "Person", "Person", x, y, DETAIL_W, h, , 1, 2
+    k = BuiltNames()
     Lbl "lblName", "", fx, y + px(44), fw, px(24), 11, True
     Lbl "lblWho", "", fx, y + px(68), fw, px(18), 9, False, CLR_MUTED_FG
     FieldLbl "lblBilletCap", "BILLET", fx, y + px(96), fw
@@ -184,28 +194,29 @@ Private Sub BuildUsersTab()
     Txt "txtLocation", "", fx, y + px(222), hw, px(28)
     Txt "txtDsn", "", fx + hw + px(8), y + px(222), hw, px(28)
     FieldLbl "lblRolesCap", "ROLES", fx, y + px(260), fw
-    ' Six slots, two to a row; Form_Load names them from tblRoles.
+    ' Eight slots, two to a row; Form_Load names them from tblRoles.
     For i = 1 To ROLE_SLOTS
         ry = y + px(280) + ((i - 1) \ 2) * px(24)
         Chk "chkRole" & i, "", fx + ((i - 1) Mod 2) * (hw + px(8)), ry + px(2)
         Set c = Lbl("lblRole" & i, "", fx + ((i - 1) Mod 2) * (hw + px(8)) + px(24), ry, hw - px(24), px(20), 9, False, CLR_FG)
         Ev c, "OnClick"
     Next
-    Toggle "tgActive", "", fx + px(4), y + px(362), px(36), px(20)
-    Link "lbltgActive", "Can use ANCHOR", fx + px(52), y + px(358), fw - px(52), px(28), "=ToggleSwitch([Form],""tgActive"")", 9, CLR_FG
+    Toggle "tgActive", "", fx + px(4), y + px(380), px(36), px(20)
+    Link "lbltgActive", "Can use ANCHOR", fx + px(52), y + px(376), fw - px(52), px(28), "=ToggleSwitch([Form],""tgActive"")", 9, CLR_FG
+    Set c = Lbl("lblPersonEmpty", "Pick someone in the list to see their profile and roles.", fx, y + px(120), fw, px(20), _
+        9, False, CLR_MUTED_FG)
+    c.TextAlign = 2
+    AnchorBuilt k, 1, 0
     Set c = Btn("btnSave", "Save", fx, y + h - px(46), px(88), px(30)): Anchor c, 1, 1
     c.ControlTipText = "Save this person's profile, roles and access (Ctrl+S)"
     Set c = Btn("btnUndo", "Undo changes", fx + px(96), y + h - px(46), px(120), px(30), "outline"): Anchor c, 1, 1
     c.ControlTipText = "Put back what was last saved"
-    Set c = Lbl("lblPersonEmpty", "Pick someone in the list to see their profile and roles.", fx, y + px(120), fw, px(20), _
-        9, False, CLR_MUTED_FG)
-    c.TextAlign = 2
 End Sub
 
 ' Message types: the types and, under them, the classes on the left; the
 ' picked type on the right.
 Private Sub BuildTypesTab()
-    Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, lw As Long, ch As Long
+    Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, lw As Long, ch As Long, k As String
     y = TAB_Y: lw = AdmListW(): ch = px(236)
     h = PAGE_H - y - px(16) - ch - px(12)
     Card "Types", "Message types", PAGE_PAD, y, lw, h, , 2, 2
@@ -217,11 +228,18 @@ Private Sub BuildTypesTab()
     Card "Classes", "Communications classes", PAGE_PAD, y + h + px(12), lw, ch, , 2, 1
     Set c = Lbl("lblClassesNote", "Read only", PAGE_PAD + lw - px(16) - px(160), y + h + px(24), px(160), px(18), 8, False, CLR_MUTED_FG)
     c.TextAlign = 3: Anchor c, 1, 1
+    k = BuiltNames()
     GridHeaders "hdrClasses", ClassCols(), PAGE_PAD + px(16), y + h + px(56), w:=lw - px(32)
+    ' The headers move down with the card (it keeps to the window's bottom);
+    ' their own left/right anchoring stays as GridHeaders set it.
+    For Each c In F.Controls
+        If InStr(1, k, ";" & c.Name & ";", vbTextCompare) = 0 Then c.VerticalAnchor = 1
+    Next
     Set c = SubF("sfClasses", "subGridAdmClasses", PAGE_PAD + px(16), y + h + px(78), lw - px(32), ch - px(82)): Anchor c, 2, 1
 
     x = AdmDetailX(): fx = x + px(16): fw = DETAIL_W - px(32): h = PAGE_H - y - px(16)
     Card "Type", "Message type", x, y, DETAIL_W, h, , 1, 2
+    k = BuiltNames()     ' the type's fields keep to the right edge (AnchorBuilt)
     Lbl "lblTypeHead", "", fx, y + px(44), fw, px(24), 11, True
     Lbl "lblTypeState", "", fx, y + px(68), fw, px(18), 9, False, CLR_MUTED_FG
     FieldLbl "lblTypeCodeCap", "CODE", fx, y + px(96), fw
@@ -237,12 +255,13 @@ Private Sub BuildTypesTab()
     c.EnterKeyBehavior = True: c.ScrollBars = 2
     Lbl "lblTypeHint", "The code is what messages name, so it can't change once added. Retire a type no longer used: " & _
         "messages of that type keep it.", fx, y + px(372), fw, px(48), 8, False, CLR_MUTED_FG
+    Set c = Lbl("lblTypeEmpty", "Pick a message type in the list, or Add type.", fx, y + px(120), fw, px(20), 9, False, CLR_MUTED_FG)
+    c.TextAlign = 2
+    AnchorBuilt k, 1, 0
     Set c = Btn("btnSaveType", "Save", fx, y + h - px(46), px(88), px(30)): Anchor c, 1, 1
     c.ControlTipText = "Save the message type (Ctrl+S)"
     Set c = Btn("btnRetire", "Retire", fx + px(96), y + h - px(46), px(96), px(30), "outline"): Anchor c, 1, 1
     c.ControlTipText = "Stop offering this type for new traffic, or offer it again"
-    Set c = Lbl("lblTypeEmpty", "Pick a message type in the list, or Add type.", fx, y + px(120), fw, px(20), 9, False, CLR_MUTED_FG)
-    c.TextAlign = 2
 End Sub
 
 ' The lists' empty states, over each list (built hidden).

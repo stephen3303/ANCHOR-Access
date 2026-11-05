@@ -154,10 +154,14 @@ Public Sub Build_pgDrafting()
     Dim before As Object, tw As Long
     NewForm "", 0, PAGE_W, PAGE_H
     Ev F, "OnLoad"
-    PageHeader "Drafting & Release", "Draft outgoing command traffic, route it through its review chain and release it. " & _
+    PageHeader "Drafting && Release", "Draft outgoing command traffic, route it through its review chain and release it. " & _
         "A released message joins Messages.", PAGE_PAD
     Set c = Btn("btnNew", "New draft", PAGE_W - PAGE_PAD - px(120), px(24), px(120), px(32), "outline")
     c.ControlTipText = "Start a blank draft or one from a template (Ctrl+N)": Anchor c, 1, 0
+    ' Templates has no sidebar item (the sidebar is full at the smallest
+    ' window); it opens from here, and Ctrl+K finds it through this page.
+    Set c = Btn("btnTemplates", "Templates", PAGE_W - PAGE_PAD - px(120) - px(8) - px(112), px(24), px(112), px(32), "ghost")
+    c.ControlTipText = "The message templates drafts start from": Anchor c, 1, 0
     SearchBox "txtSearch", PAGE_PAD, px(84), px(260), "SearchFor", "Search drafts...", px(28)
     ChipRow "chip", PAGE_PAD + px(272), px(85), "ChipPick", Split(DRAFT_CHIPS, "|")
     y = px(128): h = PAGE_H - y - px(16): lw = DRAFT_LIST_W

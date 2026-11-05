@@ -353,8 +353,8 @@ Public Function RptExportCsv(ByVal periodKey As String) As String
         "CSV file|*.csv", "export")
     If Len(path) = 0 Then Exit Function
     If FileExists(path) Then Kill path
-    n = ExportSqlToCsv("SELECT ref AS Reference, subject AS Subject, prec AS Precedence, classif_txt AS Classification, " & _
-        "basis AS [Who acknowledges], due_txt AS [Ack due], acked AS Acknowledged, total AS [Expected], status AS Status FROM " & _
+    n = ExportSqlToCsv("SELECT ref AS Reference, subject AS [Message subject], prec AS Precedence, classif_txt AS Classification, " & _
+        "basis AS [Who acknowledges], due_txt AS [Ack due], acked AS Acknowledged, total AS [Expected], status AS [Ack status] FROM " & _
         ACK_TABLE & " ORDER BY Switch(status='Overdue',1,status='In Progress',2,True,3), prec_rank, received DESC", path)
     AuditLog "Export", "Acknowledgement report", "Acknowledgement accountability exported to CSV (" & n & " " & _
         Plural(n, "message") & "; " & RptPeriodText(periodKey) & ")."
