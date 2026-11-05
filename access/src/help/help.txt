@@ -141,13 +141,71 @@ The notes, ongoing topics and checklist for handing over the watch.
 Who has acknowledged the designated traffic, and how much traffic arrived by precedence and type.
 
 === admin | Admin
-Approve or deny subscription requests, review the rules that make delivery mandatory, and manage ANCHOR users and their roles.
+Approve or deny subscription requests, review the rules that make delivery mandatory and the command access groups, and, for System Admins, manage ANCHOR users and the message types. Subscription Approvers see **Approvals & Access**; System Admins also see **Users** and **Message types** in the switch at the top.
+
+# Subscription approval queue
+Every request waiting for a decision, oldest first. A request isn't active until it is approved. Pick one, then:
+- **Approve**: it becomes Active and its traffic starts reaching the requester.
+- **Deny**: you are asked why. The requester sees the reason on their Subscriptions page, and can ask again.
+You can't decide your own request: another Subscription Approver does. Every decision is recorded in the audit trail.
+
+# Mandatory alert rules
+The business rules that make delivery mandatory: which traffic they match, who must acknowledge it and within how long, and who it escalates to. They are set by command policy and are read only here.
+
+# Command access groups
+The groups traffic is released to, what each is based on (organization, role or group), how many members it has and the traffic it covers. Changes need a System Admin. Designated Release Authority processes remain outside ANCHOR.
+
+=== admin.users | Users
+For System Admins: the people who can use ANCHOR, and their roles.
+
+# Adding someone
+Type part of a name in the box at the top, pick the person, then click **Add person**. Only people in the shared Personnel file can be picked. They start as **Message Viewer** and **Subscription Requester**; give them more roles on the right.
+
+# Changing a person
+Pick someone in the list. On the right change their billet, unit, community, location and DSN, tick the roles they hold, and turn **Can use ANCHOR** on or off. Click **Save** (or press **Ctrl+S**) to save it all; **Undo changes** puts back what was saved. Leaving the person with changes not saved asks whether to save them.
+- A person turned off can't open ANCHOR. **Show deactivated people** lists them, to turn them back on.
+- You can't turn off your own access or remove your own System Admin role: another System Admin can.
+- ANCHOR always keeps one System Admin who can sign in, so the last one keeps the role.
+Role changes, access changes and profile changes are recorded in the audit trail. A change to your own roles shows in the sidebar at once.
+
+=== admin.types | Message types
+For System Admins: the message types traffic is sorted, searched and drafted by, by category, and the five communications classes (read only).
+
+# Adding and changing a type
+Click **Add type**, type its **code** as messages name it (GENADMIN), its **name**, a **category** (pick one or type a new one) and a description, then **Save**. The code can't change once added, because messages name their type by it. Pick a type to change its name, category or description.
+
+# Retiring a type
+**Retire** stops offering a type for new traffic, filters and drafting; messages of that type keep it. **Restore** offers it again. Types are never deleted. Every change is recorded in the audit trail.
 
 === audit | Audit
-Every audited action, oldest to newest. Entries are never changed or removed: each one carries a hash of the entry before it, and **Verify** recomputes the whole chain to show that none was.
+For System Admins: every audited action. Entries are never changed or removed: each one carries the hash of the entry before it, so a changed, reordered or removed entry breaks the chain from that entry on.
+
+# Tiles
+How many entries the trail holds, how many failed or ended with a warning, and the **Chain** status as your last **Verify chain** on this page found it.
+
+# Verify chain
+**Verify chain** recomputes every entry's hash, from the first to the last. "All N entries verified" means none was changed since it was recorded; otherwise the alert names the first entry that doesn't fit. The check itself is recorded in the trail.
+
+# Finding entries
+Search the resource and details, or pick an **action**, a **result**, a **user** and a range of days. The switch on the list shows the newest or the oldest first, and a column's caption sorts by it. Pick an entry to see every column of it on the right, both hashes included; **Copy** puts it on the clipboard.
+
+# Export
+**Export** saves every entry the filters match, with every column, as a CSV file. The export is recorded in the trail too. A classification above UNCLASSIFIED shows "(demo marking)": every entry in ANCHOR is demonstration content.
 
 === profile | Profile
-Your details and roles, the colors the app uses on this computer, and **Sign out**.
+Your details and roles, your email notices, the colors the app uses on this computer, and **Sign out**.
+
+# Your details
+Your name, rank, sign-in name, email and command come from the shared Personnel file; ask a Personnel admin to change them. Your billet, unit, community, location, DSN and groups are your ANCHOR profile, which a System Admin keeps under Admin: Users.
+
+# Roles and permissions
+Every ANCHOR role, what it allows and whether you hold it. Your roles decide the pages in the sidebar. Ask a System Admin for a role you need.
+
+# Notices, colors and signing out
+- **Email notices** sends an email to the Personnel file's address when traffic you must act on arrives. It is saved as soon as you flip it.
+- **Appearance** picks the palette the whole app uses on this computer.
+- **Sign out** lets someone else sign in on this copy without closing Access.
+
 === directory | Personnel
 One shared Personnel file holds everyone who can use the Navy apps built on
 this kit. Your Windows sign-in finds you in it, so most days you don't sign in
