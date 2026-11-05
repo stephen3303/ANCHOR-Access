@@ -38,10 +38,49 @@ Every message ANCHOR received, newest first. Pick one to see its preview; double
 One message: its official text as received, its integrity data, its status, and **Acknowledge** when it is designated traffic you must acknowledge.
 
 === search | Search
-Find messages by the words in them, their reference, originator, type, precedence and dates, and save a search to run it again.
+Find messages by the words in them, or narrow them down with filters, and save a search to run it again. The switch at the top picks **Basic**, **Advanced** or **Saved**.
+
+# Basic
+Type words in the box and click **Search**, or press **Enter**. Every word must appear somewhere in a message: its subject, reference, originator or text. Put a phrase in double quotes, such as "readiness report", to find those words together.
+
+# Advanced
+The same words box, with filters under it: part of the **reference**, the **originator**, the **message type**, the **class**, the **precedence**, the **classification**, the **lifecycle**, the **received** dates and whether an **acknowledgement** is required. Leave a filter blank to match any value. **Clear filters** empties them all; the words stay.
+
+# The results
+The newest message is first. Click a column's caption to sort by it. Double-click a message, or pick it and click **Open**, to read it in full. A classification above UNCLASSIFIED shows "(demo marking)": every message in ANCHOR is demonstration content.
+
+# Saving a search
+**Save search** keeps the words, and in Advanced the filters, under a name you choose. Saving under a name you already use replaces that search. **Saved** lists your saved searches: double-click one, or pick it and click **Run**, to run it again; **Delete** removes it. Only you see your saved searches.
+
+Every search you run is recorded in the audit trail.
 
 === subscriptions | Subscriptions
-The traffic you follow. Mandatory subscriptions are assigned by your command and can't be paused. A new subscription is a request that a Subscription Approver approves.
+The traffic you follow. The catalogue lists every subscription ANCHOR offers, with **your status** of each:
+- **Active**: you receive it.
+- **Paused**: you paused it; you don't receive it until you resume it.
+- **Pending Approval**: you asked for it and your unit's Subscription Approver hasn't decided yet.
+- **Denied**: the approver said no. Their reason shows on the right, and you can ask again.
+- **Not subscribed**: you haven't asked for it.
+
+# Mandatory subscriptions
+Subscriptions **assigned by command** always show Active. You receive them whatever you choose, and they can't be paused, requested or withdrawn.
+
+# Finding one
+Type in the search box to find a subscription by its name, description or category, or pick a **category**.
+
+# The picked subscription
+Pick a subscription to see, on the right, its category and usual delivery, where you stand, **what it matches** (message types, originators, keywords and precedence; "Any" where it doesn't narrow) and how many messages in ANCHOR match it now.
+- **Request...** asks for it (see Requesting a subscription).
+- **Pause** stops an active subscription for a while; **Resume** starts it again.
+- **Withdraw request** takes back a request before the approver decides it.
+
+=== subscriptions.request | Requesting a subscription
+Click **Request...** on a subscription you don't have, or one that was denied.
+- **How often**: **Real-time** as each message arrives, a **Daily Digest**, or **Weekly**. The subscription's usual choice is picked first.
+- **Deliver to**: **In app**, **Email** and **Teams**. Pick at least one.
+- **Justification** is required: say why you need it. The Subscription Approver reads it before deciding.
+
+**Submit for approval** sends the request; it shows as Pending Approval until the approver decides. You need the Subscription Requester role to make a request.
 
 === briefings | Briefings
 Build a briefing from a period's traffic, pick the messages to brief, and print it.
