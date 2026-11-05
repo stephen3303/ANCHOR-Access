@@ -924,6 +924,21 @@ End Sub
 '   problem   set to why the folder couldn't be checked ("" when it was)
 ' Returns the run's summary (IngestLastRunText).
 ' Errors: ERR_NOT_ALLOWED unless a System Admin now (also mid-run).
+' Make the drop folder and its Ingested and Rejected subfolders when
+' missing. Returns "" or why they can't be used. A real error is caught by a
+' handler rather than read from Err after On Error Resume Next: the kit's
+' FolderExists leaves Err set (53, File not found) for a folder that isn't
+' there yet, which made the first run on a new folder look like a failure.
+Private Function IngMakeFolders(ByVal folder As String) As String
+    On Error GoTo Fail
+    EnsureFolder folder
+    EnsureFolder folder & "\Ingested"
+    EnsureFolder folder & "\Rejected"
+    Exit Function
+Fail:
+    IngMakeFolders = "The drop folder " & folder & " can't be used: " & Err.Description
+End Function
+
 Public Function IngestCheckFolder(ByRef problem As String) As String
     Dim folder As String, f As String, files As Collection, v As Variant, n As Long
     problem = ""
@@ -931,12 +946,7 @@ Public Function IngestCheckFolder(ByRef problem As String) As String
     If Not IngestReady() Then problem = "This data file has no ingest log. Make the data file again to add mail ingestion.": Exit Function
     folder = IngestDropFolder()
     If Len(folder) = 0 Then problem = "Set the drop folder first.": Exit Function
-    On Error Resume Next
-    EnsureFolder folder
-    EnsureFolder folder & "\Ingested"
-    EnsureFolder folder & "\Rejected"
-    If Err.Number <> 0 Then problem = "The drop folder " & folder & " can't be used: " & Err.Description
-    On Error GoTo 0
+    problem = IngMakeFolders(folder)
     If Len(problem) > 0 Then Exit Function
     On Error GoTo Fail
     IngStartRun "Folder"

@@ -807,7 +807,9 @@ Private Sub RefreshIngest()
         why = "This data file was made before mail ingestion. Make it again (backend\new-backend.ps1) to add the ingest log."
         ShowEmpty Me, "emptyIngest", True, "Mail ingest isn't set up", why
     Else
-        Me.sfIngest.Form.Requery
+        ' Set again, not Requery: a Requery of the log while it was empty and
+        ' hidden left it empty after the first run (seen on the review VM).
+        Me.sfIngest.Form.RecordSource = IngestLogSql()
         n = ShownCount(Me.sfIngest)
         ShowEmpty Me, "emptyIngest", n = 0
     End If
