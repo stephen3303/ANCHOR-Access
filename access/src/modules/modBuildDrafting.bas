@@ -65,7 +65,7 @@ End Sub
 
 ' "field|caption|width px|options[|sort field]"
 Private Function DraftCols() As Variant
-    DraftCols = Array("status|Status|96|p", "prec|Precedence|92|p", "subject|Subject|140|bs")
+    DraftCols = Array("status|Status|96|p", "prec|Precedence|104|p", "subject|Subject|128|bs")
 End Function
 
 Private Function RouteStepCols() As Variant
@@ -105,6 +105,32 @@ Private Sub HiddenAlert(ByVal nm As String, ByVal x As Long, ByVal y As Long, By
         F.Controls(nm & s).Visible = False
     Next
 End Sub
+
+' Anchor every control made since kd (BuiltNames) to the right edge, as the
+' detail card is (the list beside it widens with the window). Names matching
+' a pattern in bottoms (comma separated, Like patterns) also keep to the
+' bottom; those matching one in grows stretch down with the card.
+Private Sub AnchorDetail(ByVal kd As String, ByVal bottoms As String, ByVal grows As String)
+    Dim c As Control
+    AnchorBuilt kd, 1, 0
+    For Each c In F.Controls
+        If InStr(1, kd, ";" & c.Name & ";", vbTextCompare) = 0 Then
+            If NameIn(c.Name, bottoms) Then
+                c.VerticalAnchor = 1
+            ElseIf NameIn(c.Name, grows) Then
+                c.VerticalAnchor = 2
+            End If
+        End If
+    Next
+End Sub
+
+' True when nm matches one of the comma-separated Like patterns.
+Private Function NameIn(ByVal nm As String, ByVal patterns As String) As Boolean
+    Dim p As Variant
+    For Each p In Split(patterns, ",")
+        If nm Like CStr(p) Then NameIn = True: Exit Function
+    Next
+End Function
 
 ' A multi-line text box: Enter starts a new line, a scroll bar when long.
 Private Function Memo(ByVal nm As String, ByVal x As Long, ByVal y As Long, ByVal w As Long, ByVal h As Long) As Control
@@ -151,7 +177,7 @@ End Sub
 ' is top right.
 Public Sub Build_pgDrafting()
     Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, btnY As Long, lw As Long, cy As Long
-    Dim before As Object, tw As Long
+    Dim before As Object, tw As Long, kd As String
     NewForm "", 0, PAGE_W, PAGE_H
     Ev F, "OnLoad"
     PageHeader "Drafting && Release", "Draft outgoing command traffic, route it through its review chain and release it. " & _
@@ -175,6 +201,7 @@ Public Sub Build_pgDrafting()
         "New draft starts one, blank or from a template.", "Show all"
 
     Card "Detail", "Draft", x, y, DraftDetailW(), h, , 1, 2
+    kd = BuiltNames()           ' the draft's controls keep to the card (AnchorDetail)
     Lbl "lblDraftRef", "", fx + px(64), y + px(14), fw - px(64), px(20), 9, False, CLR_MUTED_FG
     TabStrip fx, y + px(40), fw, "TabPick", "draft|Draft", "message|Message", "route|Route", "log|Log"
     cy = y + px(84)
@@ -249,6 +276,8 @@ Public Sub Build_pgDrafting()
 
     Set c = Lbl("lblDetailEmpty", "Pick a draft in the list, or start one with New draft.", fx, y + px(120), fw, px(20), 9, False, CLR_MUTED_FG)
     c.TextAlign = 2
+    AnchorDetail kd, "btnSave*,btnUndo*,lblEditNote,btnWithdraw*,btnCheck*,btnCopy*,lblPreviewNote,btnSubmit*,btnEndorse*," & _
+        "btnRelease*,btnReturn*,btnOpenMessage*", "txtParas*,txtIssues*,txtComment*,sfLog*"
     SaveForm "pgDrafting"
 End Sub
 
@@ -263,7 +292,7 @@ End Sub
 ' template is top right (ANCHOR admins).
 Public Sub Build_pgTemplates()
     Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, btnY As Long, lw As Long, cy As Long
-    Dim before As Object, tw As Long, rx As Long
+    Dim before As Object, tw As Long, rx As Long, kd As String
     NewForm "", 0, PAGE_W, PAGE_H
     Ev F, "OnLoad"
     PageHeader "Templates", "Reusable messages with {{ fields }} the drafter fills in. Drafts start from a template's active version.", PAGE_PAD
@@ -282,6 +311,7 @@ Public Sub Build_pgTemplates()
         "An ANCHOR admin adds templates with New template.", "Show all"
 
     Card "Detail", "Template", x, y, TplDetailW(), h, , 1, 2
+    kd = BuiltNames()           ' the template's controls keep to the card (AnchorDetail)
     Lbl "lblTplName", "", fx, y + px(40), fw, px(22), 11, True
     Lbl "lblTplSub", "", fx, y + px(62), fw, px(18), 9, False, CLR_MUTED_FG
     TabStrip fx, y + px(88), fw, "TabPick", "header|Header", "text|Text", "fields|Fields", "preview|Preview"
@@ -343,6 +373,7 @@ Public Sub Build_pgTemplates()
     c.ControlTipText = "Stop new drafts starting from it"
     Set c = Lbl("lblDetailEmpty", "Pick a template in the list to see it here.", fx, y + px(120), fw, px(20), 9, False, CLR_MUTED_FG)
     c.TextAlign = 2
+    AnchorDetail kd, "btnSave*,btnUndo*,btnStart*,btnNewVersion*,btnActivate*,btnRetire*", "txtBody*,sfFields*,txtTplPreview*"
     SaveForm "pgTemplates"
 End Sub
 
@@ -452,6 +483,10 @@ Public Sub Build_pgRouting()
     c.ControlTipText = "Save the settings (Ctrl+S)"
     Btn "btnCsUndo", "Undo", fx + px(96), y + px(354), px(88), px(30), "outline"
     GroupSince before, "grpCs"
+    ' The cards grow down with the window; the buttons at their foot follow.
+    For Each c In F.Controls
+        If NameIn(c.Name, "btnWfSave*,btnWfUndo*,btnRemoveRa*,lblRaNote") Then c.VerticalAnchor = 1
+    Next
     SaveForm "pgRouting"
 End Sub
 
