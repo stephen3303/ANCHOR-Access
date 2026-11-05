@@ -132,13 +132,77 @@ Click **Request...** on a subscription you don't have, or one that was denied.
 **Submit for approval** sends the request; it shows as Pending Approval until the approver decides. You need the Subscription Requester role to make a request.
 
 === briefings | Briefings
-Build a briefing from a period's traffic, pick the messages to brief, and print it.
+Build a briefing from a period's traffic, pick the messages to brief, and print it. The page is for Briefing Creators.
+
+# Saved briefings
+The briefings saved so far, newest first. Click one to open it in the builder. **New briefing** (or **Ctrl+N**) starts an empty one. If the open briefing has changes you haven't saved, you are asked first.
+
+# Building a briefing
+- Give it a **title** and a **period** (From and To, both days included).
+- Set the filters if you want: a **precedence**, a **message type** (from the list of message types your admin keeps) and a **community** (text the message's communities contain, such as Safety). Leave them on All, or blank, for any.
+- Click **Add matching messages**. The period's messages that match are added to the list, not ticked. Change the filters and add again to add more.
+- Tick the messages to brief: pick a row and click **Tick / untick**, or double-click it.
+- **Note...** writes what the briefing says about the picked message. A message with a note is ticked.
+- Write any notes on the whole briefing in the box under the list.
+- **Save** (or **Ctrl+S**) saves the briefing with its ticked messages. Unticked messages aren't saved. Saving is recorded in the audit trail.
+
+=== briefings.print | The printed briefing
+**Print briefing** opens the saved briefing to print (it saves your changes first). It shows:
+- a classification line at the top and bottom of each page: the highest classification of the messages in it;
+- the title, the period, who prepared it and when, and the briefing's notes;
+- each message in order of precedence, newest first: its reference, DTG, precedence and classification, its subject, then your note or, without one, **the first paragraph of its official text**.
+
+A briefing never uses a message's AI summary: the AI summary is not the official record.
+
+ANCHOR's classifications are for demonstration only. A level above UNCLASSIFIED shows "DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED." beside it.
 
 === watch | Watch turnover
-The notes, ongoing topics and checklist for handing over the watch.
+Review traffic, resolve priorities and take the watch. Everyone who uses ANCHOR can use this page.
+
+# The counts
+- **Unread messages**: the messages you haven't opened yet.
+- **Acknowledgements due**: designated traffic you must still acknowledge.
+- **Open action items**: messages that carry an action item and still direct action (not superseded, cancelled or expired).
+- **Turnover checklist**: how many items of the open turnover are ticked.
+
+# Watch notes
+Notes the watch leaves for the next one, open notes first. **Add note** adds one; pick a note and click **Close** once it is dealt with. Closed notes stay listed under the open ones.
+
+# Ongoing topics
+The topics the watch is following. **Add topic** adds one as Active. Pick a topic and click **Status** to set it **Active**, **Monitoring** or **Closed**; its last update changes to now.
+
+=== watch.checklist | The turnover checklist
+- Click **Start turnover** when you take over. Only one turnover is open at a time.
+- Click an item to tick it once it is done; click it again to untick it.
+- **Complete turnover** needs every item ticked. Completing it is recorded in the audit trail.
+
+The checklist's items are kept by an admin.
 
 === reports | Reports
-Who has acknowledged the designated traffic, and how much traffic arrived by precedence and type.
+Who has acknowledged the designated traffic, and how much traffic arrived. The page is for Report Viewers.
+
+# The period
+Pick **7 days**, **30 days** or **All**. Everything on the page covers the messages received in that period.
+
+# The tiles
+- **Messages received** in the period.
+- **Acknowledged**: the share of the acknowledgements owed that were made.
+- **Acknowledgements owed**: how many are still to come.
+- **Overdue messages**: messages past their acknowledgement due time that not everyone has acknowledged.
+
+=== reports.ack | Acknowledgement accountability
+Every message in the period that must be acknowledged, except one superseded or cancelled. Overdue messages are listed first.
+- For traffic we **received**, every active ANCHOR user acknowledges it for themselves: "3 of 12" means 3 of the 12 have.
+- For traffic **our command sent**, the addressee commands acknowledge it. An address group counts each of its commands; a command reached as TO and as INFO counts once.
+
+A message is **Acknowledged** when everyone has, **Overdue** when its due time passed first, otherwise **In Progress**. Pick a message to see under the table who has acknowledged it and when, and who hasn't. **Open message**, or a double-click, reads it.
+
+**Export CSV** saves the table as a CSV file. Exports are recorded in the audit trail.
+
+ANCHOR's classifications are for demonstration only. A level above UNCLASSIFIED shows its demonstration note beside it.
+
+=== reports.traffic | Traffic measures
+How many of the period's messages there were by **precedence**, by **type** (named from the list of message types), by **classification** and by **lifecycle**, with each one's share of the period's traffic.
 
 === admin | Admin
 Approve or deny subscription requests, review the rules that make delivery mandatory and the command access groups, and, for System Admins, manage ANCHOR users and the message types. Subscription Approvers see **Approvals & Access**; System Admins also see **Users** and **Message types** in the switch at the top.

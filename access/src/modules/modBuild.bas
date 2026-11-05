@@ -133,6 +133,7 @@ End Sub
 Private Sub BuildAppDialogs()
     BuildMessagesDialogs           ' modBuildMessages
     BuildSubscriptionsDialogs      ' modBuildSubscriptions
+    Build_rptBriefing              ' modBuildBriefings: the printed briefing (report)
 End Sub
 
 ' A page not built yet: its header and a note that says so, so the sidebar,
