@@ -29,13 +29,62 @@ Press **Ctrl+K** and start typing the name of a page. Press **Enter** to go to t
 The message text ANCHOR shows is the official text as received. An AI summary, where a message has one, is shown apart from it in its own box marked **Not authoritative**: always act on the official text.
 
 === home | Home
-What needs you now: the messages you must acknowledge, the messages whose status changed, and the latest traffic.
+What needs you now: the messages you must acknowledge, the messages whose status changed, and the latest traffic. Click any message to read it.
+
+# The tiles
+- **Unread**: the messages you haven't opened yet.
+- **Acknowledgements due**: designated traffic you must still acknowledge. Traffic your own command sent never needs your acknowledgement.
+- **Action items open**: messages with an action item that still stands (not superseded, cancelled or expired).
+- **Status changes**: messages amended, corrected, superseded, cancelled or expired.
+
+# Requires your acknowledgement
+The messages you must acknowledge, the soonest due first, with how long is left or how long they are overdue. Open one and click **Acknowledge** on the Message page. The count at the top right says how many of your designated messages you have acknowledged.
+
+# Status changes and latest traffic
+**Status changes** lists the messages that are no longer simply current, with what replaced them or what they update. **Latest traffic** shows the 8 newest messages; **View all** goes to Messages.
 
 === messages | Messages
 Every message ANCHOR received, newest first. Pick one to see its preview; double-click it, or click **Open**, to read it in full.
 
+# Find a message
+- Type in the search box to find words in the subject, the reference or the originator.
+- **All**, **Unread** and **Ack due** show every message, only those you haven't read, or only those you must still acknowledge.
+- The three lists narrow it to one precedence, one message type or one classification.
+- Click a column heading to sort by it; click it again to reverse the order.
+- When nothing matches, **Clear filters** shows every message again.
+
+# Reading the list
+- A dot marks a message you haven't read.
+- **Precedence**: FLASH, IMMEDIATE, PRIORITY or ROUTINE.
+- **Status**: ACTIVE, or AMENDED, CORRECTED, SUPERSEDED, CANCELLED or EXPIRED. A superseded or cancelled message no longer directs action: open the message that replaced it.
+- **Ack due**: you must acknowledge it.
+
+# The preview
+The picked message's subject, reference, DTG and originator, its pills and the first lines of its official text. A classification above UNCLASSIFIED shows its demonstration note: every message in ANCHOR is fictional and unclassified.
+
+# Read and unread
+**Mark read** and **Mark unread** change the picked message; **Mark all read** marks every message read. They change only what you see. Right-click a row for the same actions.
+
 === message | Message
-One message: its official text as received, its integrity data, its status, and **Acknowledge** when it is designated traffic you must acknowledge.
+One message: its official text as received, its integrity data, its status, and **Acknowledge** when it is designated traffic you must acknowledge. Opening a message marks it read.
+
+# The official text
+The large box holds the message as ANCHOR formatted it. Switch to **Raw as received** to see the text exactly as it arrived from C2OIX, unchanged. The **AI summary** under it is a reading aid only, kept apart from the official text and marked **Not authoritative**: always act on the official text.
+
+# Status
+The banner under the subject says whether the message is current. A superseded, cancelled or amended message names the message that replaced it; click **Open** beside it to read that one.
+
+# Acknowledging
+When you must acknowledge the message, the bar on the right says by when; click **Acknowledge** once you have read it. The bar then shows when you acknowledged it. For traffic your own command sent, the bar says how many addressee commands acknowledged it, and the **Acks** tab lists each command, with the commands in each address group counted one by one.
+
+# The tabs
+- **Details**: the message type and communications class, the integrity data recorded at ingestion (C2OIX id, SHA-256, size, retention, received time) and any action item.
+- **Addressees**: who it was sent to and for information, the distribution, and the names of its attachments (the files stay in C2OIX).
+- **Acks**: the acknowledgement status of your command's own traffic.
+- **Related**: the messages it names that ANCHOR holds. Click one to open it.
+
+# Printing
+**Print** opens the official rendition: the classification marking at the top and bottom of every page, the heading block, the official text and the integrity block. Printed copies are uncontrolled. **Mark unread** puts the dot back on it under Messages.
 
 === search | Search
 Find messages by the words in them, or narrow them down with filters, and save a search to run it again. The switch at the top picks **Basic**, **Advanced** or **Saved**.
