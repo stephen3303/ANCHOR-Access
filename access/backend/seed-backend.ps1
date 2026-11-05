@@ -45,3 +45,7 @@ if ($Personnel) {
 $result = Invoke-BackEndBuilder -Entry 'SeedBackEndAt' -Arguments @($Path, (Join-Path $backend 'seed'), $Personnel)
 Write-Host "SeedBackEndAt: $result"
 if (-not $result.StartsWith('OK')) { exit 1 }
+# The front end shows these rows only when it is linked to this file
+# (build.ps1 with no -BackEnd makes a copy with no data at all).
+Write-Host "A front end shows these rows only when it is linked to this file. If yours isn't yet:"
+Write-Host "  .\build.ps1 -BackEnd `"$Path`"   (from the access folder)"
