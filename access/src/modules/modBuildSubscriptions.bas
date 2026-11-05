@@ -36,13 +36,17 @@ End Sub
 
 ' The Subscriptions page (see the module's header).
 Public Sub Build_pgSubscriptions()
-    Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, lw As Long, btnY As Long
+    Dim c As Control, x As Long, y As Long, h As Long, fx As Long, fw As Long, lw As Long, btnY As Long, k As String
     NewForm "", 0, PAGE_W, PAGE_H
     Ev F, "OnLoad"
     PageHeader "Subscriptions", "The traffic you follow. Mandatory subscriptions are assigned by your command and can't be paused. " & _
         "A new subscription is a request that your unit's Subscription Approver approves.", PAGE_PAD
     Alert "alInfo", PAGE_PAD, px(84), ContentW(), px(40), "info", "", _
         "New subscriptions go to your unit's Subscription Approver. Mandatory ones are assigned by command and can't be paused."
+    ' The banner stretches with the window: its panel and message (the bar and icon stay at its left).
+    Anchor F.Controls("alInfo"), 2, 0
+    Anchor F.Controls("alInfo_title"), 2, 0
+    Anchor F.Controls("alInfo_msg"), 2, 0
     SearchBox "txtSearch", PAGE_PAD, px(136), px(260), "SearchFor", "Search subscriptions...", px(28)
     Set c = Cbo("cboCategory", "", """(All categories)""", PAGE_PAD + px(272), px(136), px(240), px(28))
     c.ControlTipText = "Show one category of the catalogue"
@@ -57,6 +61,9 @@ Public Sub Build_pgSubscriptions()
         "No subscription fits the search and the category.", "Show all"
 
     Card "Detail", "Subscription", x, y, SUB_DETAIL_W, h, , 1, 2
+    ' Everything in the card moves with its right edge, as the card does
+    ' (AnchorBuilt below); the buttons also keep to its bottom.
+    k = BuiltNames()
     Lbl "lblSubName", "", fx, y + px(40), fw, px(24), 11, True
     Lbl "lblSubMeta", "", fx, y + px(64), fw, px(20), 9, False, CLR_MUTED_FG
     Lbl "lblSubDesc", "", fx, y + px(88), fw, px(36), 9, False, CLR_FG
@@ -65,17 +72,21 @@ Public Sub Build_pgSubscriptions()
     RO "txtCriteria", "", fx, y + px(242), fw, px(88), 9
     FieldLbl "capMatches", "MATCHING MESSAGES", fx, y + px(338), fw
     Lbl "lblMatches", "", fx, y + px(356), fw, px(20), 9, False, CLR_FG
-    Set c = Btn("btnRequest", "Request...", fx, btnY, px(112), px(30)): Anchor c, 0, 1
+    Set c = Btn("btnRequest", "Request...", fx, btnY, px(112), px(30))
     c.ControlTipText = "Ask your unit's Subscription Approver for this subscription"
     Ev c, "OnClick"
-    Set c = Btn("btnPause", "Pause", fx + px(120), btnY, px(88), px(30), "outline"): Anchor c, 0, 1
+    Set c = Btn("btnPause", "Pause", fx + px(120), btnY, px(88), px(30), "outline")
     c.ControlTipText = "Stop receiving it for a while, or start again"
     Ev c, "OnClick"
-    Set c = Btn("btnWithdraw", "Withdraw request", fx + px(216), btnY, fw - px(216), px(30), "outline"): Anchor c, 0, 1
+    Set c = Btn("btnWithdraw", "Withdraw request", fx + px(216), btnY, fw - px(216), px(30), "outline")
     c.ControlTipText = "Take back your request before an approver decides it"
     Ev c, "OnClick"
     Set c = Lbl("lblDetailEmpty", "Pick a subscription in the list to see it here.", fx, y + px(120), fw, px(20), 9, False, CLR_MUTED_FG)
     c.TextAlign = 2
+    AnchorBuilt k, 1, 0
+    Anchor F.Controls("btnRequest"), 1, 1
+    Anchor F.Controls("btnPause"), 1, 1
+    Anchor F.Controls("btnWithdraw"), 1, 1
     SaveForm "pgSubscriptions"
 End Sub
 

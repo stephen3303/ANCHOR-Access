@@ -29,8 +29,9 @@ End Sub
 
 ' "field|caption|width px|options[|sort field]"
 Private Function SearchCols() As Variant
-    SearchCols = Array("prec|Precedence|88|p|prec_rank", "ref|Reference|128|bs", "subject|Subject|192|s", "originator|Originator|112|s", _
-        "msg_type|Type|100|m", "classif_txt|Classification|148|m", "lifecycle|Lifecycle|92|p", "received_txt|Received|100|m|received")
+    ' Subject is last, so it takes the rest of the width and stretches with the window.
+    SearchCols = Array("prec|Precedence|84|p|prec_rank", "ref|Reference|140|bs", "originator|Originator|112|s", "msg_type|Type|112|m", _
+        "classif_txt|Classification|136|m", "lifecycle|Lifecycle|88|p", "received_txt|Received|100|m|received", "subject|Subject|188|s")
 End Function
 
 Private Function SavedCols() As Variant
