@@ -25,7 +25,9 @@ Option Explicit
 
 Private Const GENESIS As String = "ANCHOR-AUDIT-GENESIS"
 
-' Add one audit row for the signed-in person and seal it.
+' Add one audit row for the signed-in person and seal it. Device is the
+' computer's name; Location is the person's unit (the web app's audit shows
+' the unit there).
 '   action    what was done, a short word or two: View, Acknowledge, Search, Export
 '   resource  what it was done to: "Message (COMSUBLANT 078/26)"
 '   details   one or two sentences

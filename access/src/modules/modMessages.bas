@@ -118,14 +118,23 @@ End Sub
 
 ' Mark every message read (Messages' Mark all read). Returns how many changed.
 Public Function MarkAllRead() As Long
-    Dim pid As Long, n As Long
+    Dim pid As Long, n As Long, ws As DAO.Workspace, inTrans As Boolean
     If Not DataLinked() Then Exit Function
     pid = SignedInPersonID()
     If pid = 0 Then Exit Function
+    On Error GoTo Fail
+    Set ws = DBEngine.Workspaces(0)
+    ws.BeginTrans: inTrans = True              ' both halves or neither
     n = KitExecute("UPDATE tblMessageUserState SET ReadState='read' WHERE PersonID=" & pid & " AND ReadState<>'read'")
     n = n + KitExecute("INSERT INTO tblMessageUserState (MessageID, PersonID, ReadState, FirstReadOn) SELECT MessageID, " & pid & _
         ", 'read', Now() FROM tblMessages WHERE MessageID NOT IN (SELECT MessageID FROM tblMessageUserState WHERE PersonID=" & pid & ")")
+    ws.CommitTrans: inTrans = False
     MarkAllRead = n
+    If n > 0 Then AuditTry "Mark read", "Messages", n & " messages marked read at once."
+    Exit Function
+Fail:
+    If inTrans Then RollbackKeepingError ws
+    RaiseAgain "modMessages.MarkAllRead"
 End Function
 
 ' True when the signed-in person must still acknowledge message mid.
@@ -156,6 +165,8 @@ Public Function UnreadCount() As Long
 End Function
 
 ' Record the signed-in person's acknowledgement of message mid, and audit it.
+' The acknowledgement and its audit row are one transaction: an
+' acknowledgement that can't be audited is not recorded.
 ' Errors: 5 when the message needs no acknowledgement from them (not
 '   designated traffic, their command's own, or already acknowledged);
 '   KitExecute's.

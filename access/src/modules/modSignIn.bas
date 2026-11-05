@@ -169,9 +169,14 @@ End Function
 ' Why this copy can't use its data file (KitVersionProblem), or "".
 ' Errors: the engine's, when tblSettings can't be read.
 Public Function DataVersionProblem() As String
-    Dim v As Long
-    v = CLng(Nz(DLookup("SettingValue", PROBE_TABLE, "SettingKey='SchemaVersion'"), "0"))
-    If v = 0 Then Exit Function
+    Dim v As Long, s As String
+    s = Nz(DLookup("SettingValue", PROBE_TABLE, "SettingKey='SchemaVersion'"), "")
+    If Len(s) = 0 Or s Like "*[!0-9]*" Or Len(s) > 6 Then
+        DataVersionProblem = "The shared data file has no valid version number, so this copy of " & APP_NAME & _
+            " can't tell whether it may use it. Tell the " & APP_NAME & " admin."
+        Exit Function
+    End If
+    v = CLng(s)
     DataVersionProblem = KitVersionProblem(v, DATA_VERSION, "", "")
 End Function
 
@@ -226,6 +231,9 @@ Private Sub AddSelf(ByVal pid As Long)
     If first Then first = PersonnelIsAdminNow()
     Set ws = DBEngine.Workspaces(0)
     ws.BeginTrans: inTrans = True
+    ' Checked again inside the transaction, so two copies opening a new data
+    ' file at the same moment can't both make their person its first admin.
+    If first Then first = (DCount("*", "tblPeople") = 0)
     KitExecute "INSERT INTO tblPeople (PersonID, IsAdmin, IsActive, NotifyEmail) VALUES (" & pid & ", " & _
         IIf(first, "True", "False") & ", True, False)"
     Set rs = CurrentDb.OpenRecordset("SELECT RoleID, RoleCode FROM tblRoles", dbOpenSnapshot)
@@ -268,7 +276,9 @@ Public Sub RequireRole(ByVal code As String, ByVal what As String)
     pid = SignedInPersonID()
     If pid <> 0 Then
         If DCount("*", "tblPeople", "PersonID=" & pid & " AND IsActive") > 0 Then
-            If PersonHasRole(pid, code) Or PersonHasRole(pid, "ADMIN") Then Exit Sub
+            If PersonCanUse(pid, APP_CODE) Then         ' still allowed in the Personnel file
+                If PersonHasRole(pid, code) Or PersonHasRole(pid, "ADMIN") Then Exit Sub
+            End If
         End If
     End If
     Err.Raise ERR_NOT_ALLOWED, "modSignIn.RequireRole", "Only someone with the " & RoleName(code) & " role can " & what & _
