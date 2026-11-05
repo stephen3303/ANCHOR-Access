@@ -7,7 +7,8 @@ Option Explicit
 '
 ' On the left the person's details (from the Personnel file and their ANCHOR
 ' profile) and the email notices switch; on the right their roles, granted
-' or not, then Colors and Sign out, as Exam Generator's My settings.
+' or not, then Colors, Sign out and Change my password, as Exam Generator's
+' My settings.
 '
 ' Owner: the Profile page's build task. Depends on: modBuild (PAGE_W,
 ' PAGE_H, PAGE_PAD, ContentW); the kit's modUIKit.
@@ -80,5 +81,9 @@ Public Sub Build_pgProfile()
     Set c = Btn("btnSignOut", "Sign out", x + px(16), y + px(80), px(120), px(28), "outline")
     c.ControlTipText = "Sign out so someone else can sign in on this copy"
     c.OnClick = "=AppSignOut()"
+    ' The kit's Change my password, beside Sign out.
+    Set c = Btn("btnChangePwd", "Change my password", x + px(16) + px(120) + Sp(SP_ITEM_GAP), y + px(80), px(160), px(28), "outline")
+    c.ControlTipText = "Change the app password you sign in with after Sign out"
+    c.OnClick = "=KitPersonnelChangePassword()"
     SaveForm "pgProfile"
 End Sub

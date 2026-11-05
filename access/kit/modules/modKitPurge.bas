@@ -35,7 +35,7 @@ Option Explicit
 ' too, as a check box that starts unticked. Ticked, the purge also refuses
 ' while any other computer has the Personnel file open (any app, anywhere),
 ' saves a checked backup of it (with its Personnel.key) in a Backups folder
-' beside it, and empties kit_person_app and kit_person in place, so every
+' beside it, and empties kit_person_upn, kit_person_app and kit_person in place, so every
 ' app's links and the site key still work. The admin is signed out
 ' (KitPurgedPersonnel is True), and the next start of any app shows the
 ' Personnel setup screen to create the first admin (PERSONNEL_NO_ADMIN).
@@ -266,7 +266,7 @@ Public Function KitPurgeData(ByVal probeTable As String, ByVal tables As Variant
         stage = "personnel"
         KitBusy "Deleting the people in the Personnel directory..."
         busy = True
-        peRows = KitPurgeTables(pePath, Array(PERSON_APP_TABLE, PERSON_TABLE), PersonnelKey())
+        peRows = KitPurgeTables(pePath, PersonnelDataTables(), PersonnelKey())
         KitBusyEnd
         busy = False
         m_purgedPersonnel = True

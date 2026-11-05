@@ -1,10 +1,5 @@
 access-modern-ui (modwebui) kit, copied unchanged from
-https://github.com/stephen3303/access-modern-ui at commit 6882307cdc1050701f891e4b05fd78a918bf789d
-(2026-10-23). To update: copy kit/modules, kit/forms,
+https://github.com/stephen3303/access-modern-ui at commit 669759ec5fbbdc873dc22c3771e6b3e632ccea33
+(2026-11-05). To update: copy kit/modules, kit/forms,
 kit/adapters and kit/help from a newer commit, and the tools listed in
 ../tools from tools/, then change this line.
-
-One exception, until the kit takes it: kit/modules/modKitHelp.bas is from the kit
-branch kit-help-shared-topics (commit 06536a5, shared help topics: KitHelpSync,
-KitHelpSave, HelpSharedTableSql), which isn't merged into the kit yet. Once it is,
-copy modKitHelp.bas from the merged commit and remove this note.

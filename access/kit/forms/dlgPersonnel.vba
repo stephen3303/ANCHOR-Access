@@ -4,7 +4,8 @@ Option Explicit
 ' The Personnel page for directory admins (BuildPersonnelDialogs builds it;
 ' KitPersonnelManage opens it). Lists everyone in the Personnel file; the
 ' search box narrows the list as you type. Add person and a double-click
-' (or Edit) open dlgPerson; Import adds people from a CSV or Excel file.
+' (or Edit) open dlgPerson; Import adds or fills in people from a CSV or
+' Excel file (an Outlook contacts export too); Export saves everyone as CSV.
 
 ' Only an active Personnel admin may open this, whoever opens it: the
 ' check is against the Personnel file now (PersonnelIsAdminNow). RunDialog
@@ -102,7 +103,7 @@ Private Sub EditSelected()
     If RunDialog(PERSON_FORM, CStr(Me.lstPeople.Value)) Then LoadPeople Nz(Me.txtSearch, "")
 End Sub
 
-' Add people from a CSV or Excel file and say what happened.
+' Add or fill in people from a CSV or Excel file and say what happened.
 Private Sub btnImport_Click()
     On Error GoTo Err_Handler
     Dim path As String, result As String
@@ -118,6 +119,23 @@ Err_Handler:
     DoCmd.Hourglass False
     If Err.Number = 5 Then KitMsgBox Err.Description, vbExclamation, "Import people": Exit Sub
     HandleError "dlgPersonnel.btnImport_Click", path, "The people couldn't be imported."
+End Sub
+
+' Save everyone in the Personnel file as a CSV Import can read back.
+Private Sub btnExport_Click()
+    On Error GoTo Err_Handler
+    Dim path As String, n As Long
+    path = KitSaveAs("Export people", "Personnel " & Format$(Date, "yyyy-mm-dd") & ".csv", "CSV file|*.csv", "personnel-export")
+    If Len(path) = 0 Then Exit Sub
+    DoCmd.Hourglass True
+    n = PersonnelExport(path)
+    DoCmd.Hourglass False
+    KitToast "Exported " & n & IIf(n = 1, " person", " people") & " to " & Mid$(path, InStrRev(path, "\") + 1), "success"
+    Exit Sub
+Err_Handler:
+    DoCmd.Hourglass False
+    If Err.Number = 5 Then KitMsgBox Err.Description, vbExclamation, "Export people": Exit Sub
+    HandleError "dlgPersonnel.btnExport_Click", path, "The people couldn't be exported."
 End Sub
 
 Private Sub btnClose_Click()

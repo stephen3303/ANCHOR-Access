@@ -14,8 +14,10 @@ Option Explicit
 ' clears the session and shows the sign-in screen, so another person can
 ' sign in on the same copy. A Personnel link or button for admins:
 '   =KitPersonnelManage("SABER")
-' opens the Personnel page (dlgPersonnel): the list of people, Add person
-' and Import (dlgPerson adds or changes one, and resets a password).
+' opens the Personnel page (dlgPersonnel): the list of people, Add person,
+' Import and Export (dlgPerson adds or changes one, and resets a password).
+' A "Change my password" menu item or button for everyone:
+'   =KitPersonnelChangePassword()
 '
 ' To pick a person on a page or dialog (an assignee, a reviewer):
 '   PersonPickBox "txtOwner", "owner_person_id", x, y, w
@@ -36,6 +38,7 @@ Private m_appCode As String
 Private m_setupMode As Long
 Private m_signInWhy As String
 Private m_created As Boolean       ' the setup screen created the Personnel file
+Private m_demo As Boolean          ' the setup screen created a demo Personnel file
 
 ' ---------------------------------------------------------------------------
 ' Startup and sign out
@@ -46,7 +49,7 @@ Private m_created As Boolean       ' the setup screen created the Personnel file
 Public Function KitPersonnelStart(ByVal appTable As String, ByVal appCode As String) As Boolean
     Dim status As Long
     On Error GoTo Fail
-    m_appTable = appTable: m_appCode = appCode: m_created = False
+    m_appTable = appTable: m_appCode = appCode: m_created = False: m_demo = False
     status = PersonnelStatus(appTable)
     If status <> PERSONNEL_READY Then
         m_setupMode = status
@@ -64,6 +67,7 @@ Public Function KitPersonnelStart(ByVal appTable As String, ByVal appCode As Str
     SplashStatus "Checking your Windows sign-in" & ChrW(8230)
     If PersonnelSignInWindows(appCode) Then KitPersonnelStart = True: Exit Function
     m_signInWhy = PersonnelWindowsWhy(appCode)
+    If m_demo Then m_signInWhy = "demo"     ' sign in as a demo person (dlgSignIn fills in demo01)
     CloseSplash
     KitPersonnelStart = RunDialog(SIGNIN_FORM)
     Exit Function
@@ -99,6 +103,41 @@ Fail:
     HandleError "modPersonnelUI.KitPersonnelManage", appCode, "The Personnel page couldn't be opened."
 End Function
 
+' "Change my password", for any signed-in person: asks for the current app
+' password (when they have one), then the new one twice, in the kit's masked
+' input box. With no password yet, being signed in (by Windows) proves who
+' they are, so they just choose one. True when it was changed.
+Public Function KitPersonnelChangePassword() As Boolean
+    Dim cur As Variant, p1 As Variant, p2 As Variant, problem As String, id As Long
+    On Error GoTo Fail
+    id = SignedInPersonID()
+    If id = 0 Then KitMsgBox "Sign in first.", vbInformation, "Change my password": Exit Function
+    cur = ""
+    If PersonnelHasPassword(id) Then
+        cur = KitInputBox("Type your current app password.", "Change my password", , True)
+        If IsNull(cur) Then Exit Function
+    End If
+    Do
+        p1 = KitInputBox("Choose a new app password (8 or more characters).", "Change my password", , True)
+        If IsNull(p1) Then Exit Function
+        p2 = KitInputBox("Type the new password again.", "Change my password", , True)
+        If IsNull(p2) Then Exit Function
+        If StrComp(p1, p2, vbBinaryCompare) <> 0 Then
+            problem = "The two passwords don't match."
+        Else
+            problem = PersonnelChangePassword(id, cur, p1)
+        End If
+        If Len(problem) = 0 Then Exit Do
+        KitMsgBox problem, vbExclamation, "Change my password"
+        If problem = "Your current password isn't right." Then Exit Function
+    Loop
+    KitToast "Password changed", "success"
+    KitPersonnelChangePassword = True
+    Exit Function
+Fail:
+    HandleError "modPersonnelUI.KitPersonnelChangePassword", "", "The password couldn't be changed."
+End Function
+
 ' Why the Windows account running Access can't sign in to appCode:
 ' "notset" (nobody's account), "off" (a person who is turned off),
 ' "noaccess" (an active person without access to appCode), or "" when it
@@ -130,12 +169,17 @@ Public Function PersonnelSignInWhyText(Optional ByVal why As Variant) As String
         Case "off"
             PersonnelSignInWhyText = "This Windows account's Personnel record is turned off. Ask a Personnel admin" & _
                 PersonnelAdminNames() & " to turn it back on."
+        Case "demo"
+            PersonnelSignInWhyText = "Demo Personnel is set up: " & DEMO_PEOPLE & " made-up people, demo01 to demo" & _
+                Format$(DEMO_PEOPLE, "00") & ", every one with the password " & DEMO_PASSWORD & ". " & _
+                "demo01 and demo02 are admins."
     End Select
 End Function
 
 ' For the dialogs: the app's code and linked table, why the setup screen is
 ' open (PERSONNEL_NOT_SET_UP or PERSONNEL_LOST), why the sign-in screen is
-' ("notset", "noaccess" or "off": PersonnelWindowsWhy; "signout").
+' ("notset", "noaccess" or "off": PersonnelWindowsWhy; "signout"; "demo"
+' just after the setup screen made a demo file).
 ' A searchable picker (PickBox, modMenu) of the active people in the
 ' Personnel file: typing part of a last or first name, a rank or a sign-in
 ' name lists the matches as "Smith, John (LT)" with the sign-in name on the
@@ -182,6 +226,12 @@ Public Sub PersonnelUiCreated()
     m_created = True
 End Sub
 
+' dlgPersonnelSetup: a demo Personnel file was created (nobody is signed
+' in), so the sign-in screen says how to sign in as a demo person.
+Public Sub PersonnelUiDemoCreated()
+    m_demo = True
+End Sub
+
 ' What a person who isn't the admin sends to their admin.
 Public Function PersonnelAdminNote() As String
     Dim dataFile As String
@@ -207,15 +257,18 @@ Public Sub BuildPersonnelDialogs()
     Build_dlgPerson
 End Sub
 
-' dlgPersonnelSetup: three panels in one dialog, shown one at a time by Tag
+' dlgPersonnelSetup: four panels in one dialog, shown one at a time by Tag
 ' (the dialog sizes itself to the panel):
-'   choice  why it shows and three choices, each with a one-line hint:
+'   choice  why it shows and four choices, each with a one-line hint:
 '           Find the Personnel file, Create a new Personnel file (never while
-'           one is linked), I'm not the admin
+'           one is linked), I'm not the admin, Start with demo personnel
+'           (only when nothing is linked)
 '   create  the first admin's name and rank, the folder (Change opens the
 '           folder picker), the site key (a new random one, filled in) and
 '           their app password twice
 '   ask     what to send the admin, with Copy, and Close app
+'   demo    what the demo file holds and where it goes, marked DEMO DATA,
+'           with Create demo personnel and Back
 Private Sub Build_dlgPersonnelSetup()
     Const DLG_W As Long = 7200          ' 480 px
     Dim c As Control, pad As Long, w As Long, x As Long, y As Long, half As Long, gap As Long, btnW As Long
@@ -236,6 +289,8 @@ Private Sub Build_dlgPersonnelSetup()
         "For the first app set up here. You become the Personnel admin.", x, y, w
     ChoiceRow "NotAdmin", "I'm not the admin", _
         "Shows what to send your admin, then closes " & APP_NAME & ".", x, y, w
+    ChoiceRow "Demo", "Start with demo personnel", _
+        "For demos and testing: " & DEMO_PEOPLE & " made-up people, password " & DEMO_PASSWORD & ".", x, y, w
     ' create: starts under the title
     y = pad + px(26) + gap
     FieldLabel "lblFirst", "First name", x, y, half, "create"
@@ -289,6 +344,18 @@ Private Sub Build_dlgPersonnelSetup()
     y = y + px(140) + Sp(SP_DIALOG)
     Set c = Btn("btnCopy", "Copy", x + w - 2 * btnW - Sp(SP_ITEM_GAP), y, btnW, px(32), "outline"): c.Tag = "ask"
     Set c = Btn("btnCloseApp", "Close app", x + w - btnW, y, btnW, px(32)): c.Tag = "ask"
+    ' demo: starts under the title; btnDemo_Click fills in what and where
+    y = pad + px(26) + gap
+    Set c = Lbl("lblDemoBadge", "DEMO DATA", x, y, px(84), px(22), 9, True, CLR_WARNING_FG)
+    c.BackStyle = 1: c.BackColor = CLR_WARNING_BG: c.TextAlign = 2: c.Tag = "demo"
+    y = y + px(22) + gap
+    Lbl("lblDemoWhat", "", x, y, w, px(112)).Tag = "demo"
+    y = y + px(112) + gap
+    Lbl("lblDemoNote", "Use it only on a demo or test copy, never for real people. To start over with real " & _
+        "people, an admin deletes all data with the Personnel box ticked.", x, y, w, px(36), 9, False, CLR_MUTED_FG).Tag = "demo"
+    y = y + px(36) + Sp(SP_DIALOG)
+    Set c = Btn("btnDemoGo", "Create demo", x + w - 2 * btnW - Sp(SP_ITEM_GAP), y, btnW, px(32)): c.Tag = "demo"
+    Set c = Btn("btnDemoBack", "Back", x + w - btnW, y, btnW, px(32), "outline"): c.Tag = "demo"
     ' Tall enough for the tallest panel; Form_Load fits it to the one shown.
     For Each c In F.Controls
         If c.Top + c.Height > y Then y = c.Top + c.Height
@@ -359,8 +426,8 @@ Private Sub Build_dlgSignIn()
     SaveForm SIGNIN_FORM
 End Sub
 
-' dlgPersonnel, the Personnel page for directory admins: a search box, Import
-' and Add person, the list of people (double-click or Edit to change one)
+' dlgPersonnel, the Personnel page for directory admins: a search box, Export,
+' Import and Add person, the list of people (double-click or Edit to change one)
 ' and Close.
 Private Sub Build_dlgPersonnel()
     Const DLG_W As Long = 11520         ' 768 px
@@ -375,6 +442,7 @@ Private Sub Build_dlgPersonnel()
     Set c = Txt("txtSearch", "", x, y, px(260), px(30), 9)
     c.Format = "@;""Search people..."""
     Ev c, "OnChange"
+    Btn "btnExport", "Export...", x + w - 3 * btnW - 2 * Sp(SP_ITEM_GAP), y, btnW, px(30), "outline"
     Btn "btnImport", "Import...", x + w - 2 * btnW - Sp(SP_ITEM_GAP), y, btnW, px(30), "outline"
     Btn "btnAdd", "Add person", x + w - btnW, y, btnW, px(30)
     y = y + px(30) + Sp(SP_ROW_GAP)
@@ -394,9 +462,12 @@ Private Sub Build_dlgPersonnel()
 End Sub
 
 ' dlgPerson: add or change one person. OpenArgs "new" or a person_id. Name,
-' rank, command and email; sign-in name and Windows account; Active,
-' Personnel admin and "Can open <app>"; an app password typed twice; a line
-' for what went wrong; Save and Close. Adding stays open after Save, ready
+' rank, command and email; sign-in name and Windows account; user
+' principal name (admins only, never exported), which finds a blank Windows
+' account on Save; Active,
+' Personnel admin and "Can open <app>"; an app password typed twice and
+' Reset password (a one-time password they must change); a line for what
+' went wrong; Save and Close. Adding stays open after Save, ready
 ' for the next person.
 Private Sub Build_dlgPerson()
     Const DLG_W As Long = 8400          ' 560 px
@@ -416,6 +487,12 @@ Private Sub Build_dlgPerson()
     Lbl "lblUserHint", "Blank: made from the Windows account, or the first initial and last name.", _
         x, y, w, px(16), 8, False, CLR_MUTED_FG
     y = y + px(16) + Sp(16)
+    FieldLabel "lblUpn", "User principal name (UPN) or DoD ID", x, y, half, ""
+    y = y + px(18)
+    Txt "txtUpn", "", x, y, half, px(30)
+    Lbl "lblUpnHint", "Admins only; never exported. Save finds a blank Windows account from it.", _
+        x2, y, half, px(30), 8, False, CLR_MUTED_FG
+    y = y + px(30) + Sp(16)
     Chk "chkActive", "", x, y + px(2)
     Lbl "lblActive", "Active (can sign in)", x + px(24), y, half - px(24), px(20), 9
     Chk "chkAdmin", "", x2, y + px(2)
@@ -430,8 +507,9 @@ Private Sub Build_dlgPerson()
     Set c = Txt("txtPwd", "", x, y, half, px(30)): c.InputMask = SECRET_MASK
     Set c = Txt("txtPwd2", "", x2, y, half, px(30)): c.InputMask = SECRET_MASK
     y = y + px(30) + px(4)
-    Lbl "lblPwdHint", "", x, y, w, px(32), 8, False, CLR_MUTED_FG         ' Form_Load: new or change
-    y = y + px(32) + gap
+    Lbl "lblPwdHint", "", x, y, w - px(140) - Sp(SP_ITEM_GAP), px(44), 8, False, CLR_MUTED_FG   ' Form_Load: new or change; 3 lines
+    Btn "btnResetPwd", "Reset password", x + w - px(140), y, px(140), px(30), "outline"   ' hidden while adding
+    y = y + px(44) + gap
     Lbl "lblError", "", x, y, w, px(36), 9, False, CLR_ERROR
     y = y + px(36) + gap
     Set c = Btn("btnSave", "Save", x + w - 2 * btnW - Sp(SP_ITEM_GAP), y, btnW, px(32)): c.Default = True

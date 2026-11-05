@@ -9,6 +9,10 @@ Option Explicit
 ' After everyone was deleted from the directory (PERSONNEL_NO_ADMIN, an
 ' admin's purge) it offers creating the first admin in the linked file
 ' instead: Create asks only for the name, rank and password.
+' Start with demo personnel (only when nothing is linked) creates a Personnel
+' file of DEMO DATA, made-up people who all have the password DEMO_PASSWORD
+' (CreateDemoPersonnelFile); nobody is signed in, so the sign-in screen
+' comes next.
 
 Private m_tops As Object          ' each tagged control's designed Top, by name
 Private m_fullHeight As Long      ' the designed Detail height (the tallest panel)
@@ -30,6 +34,7 @@ Private Sub Form_Load()
             "the admin, create your account as its first admin. Otherwise ask your admin."
         ' The file is linked and stays: Find leaves, and Create takes its place.
         Me.btnFind.Tag = "never": Me.lblFindHint.Tag = "never"
+        HideDemo
         m_tops("btnNotAdmin") = m_tops("btnCreate"): m_tops("lblNotAdminHint") = m_tops("lblCreateHint")
         m_tops("btnCreate") = m_tops("btnFind"): m_tops("lblCreateHint") = m_tops("lblFindHint")
         Me.btnCreate.Caption = "Create the first admin"
@@ -44,6 +49,7 @@ Private Sub Form_Load()
         Me.btnCreate.Tag = "never": Me.lblCreateHint.Tag = "never"
         m_tops("btnNotAdmin") = m_tops("btnCreate")
         m_tops("lblNotAdminHint") = m_tops("lblCreateHint")
+        HideDemo
     Else
         Me.lblWhy.Caption = APP_NAME & " signs people in from a shared Personnel file, and it can't find one. " & _
             "If Personnel is already set up for another app, find its file."
@@ -70,6 +76,13 @@ Private Sub HideFileRows()
     For Each v In Array("lblFolder", "txtFolder", "btnFolder", "lblFolderHint", "lblKey", "txtKey", "lblKeyHint")
         Me.Controls(v).Tag = "never"
     Next
+End Sub
+
+' Never offer demo people while a Personnel file is linked (lost, or with
+' no admin): Start with demo personnel leaves every panel. It is the last
+' choice, so nothing under it moves.
+Private Sub HideDemo()
+    Me.btnDemo.Tag = "never": Me.lblDemoHint.Tag = "never"
 End Sub
 
 ' F1 opens the help on this screen (KitHelp).
@@ -198,6 +211,51 @@ Private Sub btnNotAdmin_Click()
     Exit Sub
 Err_Handler:
     HandleError "dlgPersonnelSetup.btnNotAdmin_Click"
+End Sub
+
+' The demo panel: what the demo file holds and where it goes.
+Private Sub btnDemo_Click()
+    On Error GoTo Err_Handler
+    ShowPanel "demo"
+    Me.lblTitle.Caption = "Start with demo personnel"
+    Me.lblDemoWhat.Caption = "Creates a Personnel file of made-up people for demos and testing: " & DEMO_PEOPLE & _
+        " people with made-up names and DoD IDs, sign-in names demo01 to demo" & Format$(DEMO_PEOPLE, "00") & _
+        ", each with the app password " & DEMO_PASSWORD & " and access to " & APP_NAME & ". demo01 and demo02 are " & _
+        "Personnel admins. It goes in " & Nz(Me.txtFolder, "") & ", with a new site key."
+    Me.btnDemoGo.SetFocus
+    Exit Sub
+Err_Handler:
+    HandleError "dlgPersonnelSetup.btnDemo_Click"
+End Sub
+
+Private Sub btnDemoBack_Click()
+    On Error GoTo Err_Handler
+    ShowPanel "choice"
+    Me.lblTitle.Caption = "Set up the Personnel directory"
+    Me.btnDemo.SetFocus
+    Exit Sub
+Err_Handler:
+    HandleError "dlgPersonnelSetup.btnDemoBack_Click"
+End Sub
+
+' Create the demo file in the default folder with a new site key. Nobody is
+' signed in: KitPersonnelStart shows the sign-in screen next, which says how
+' to sign in as a demo person.
+Private Sub btnDemoGo_Click()
+    On Error GoTo Err_Handler
+    Dim path As String, siteKey As String
+    Me.txtKey = NewPersonnelKey()
+    If Not NewFileChecked(path, siteKey) Then Exit Sub
+    DoCmd.Hourglass True
+    CreateDemoPersonnelFile path, PersonnelUiAppCode(), siteKey
+    DoCmd.Hourglass False
+    PersonnelUiDemoCreated
+    TempVars("DialogResult") = "ok"
+    DoCmd.Close acForm, Me.Name, acSaveNo
+    Exit Sub
+Err_Handler:
+    DoCmd.Hourglass False
+    HandleError "dlgPersonnelSetup.btnDemoGo_Click", path, "The demo Personnel file couldn't be created."
 End Sub
 
 Private Sub btnBack_Click()
