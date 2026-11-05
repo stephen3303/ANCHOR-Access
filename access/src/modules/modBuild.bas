@@ -22,7 +22,8 @@ Option Explicit
 ' Pages (the web app's routes): Home (/), Messages (/messages), the Message
 ' page (/messages/[id], opened from any list, not in the sidebar), Search,
 ' Subscriptions, Briefings, Watch turnover, Reports, Admin, Audit and
-' Profile. Drafting and Templates stay in Message Generator; the web app's
+' Profile, plus Drafting & Release, Templates and Admin: Routing, which
+' came over from Message Generator (ANCHOR absorbs it). The web app's
 ' simulators, topology and offline pages are network demos with no place in
 ' an Access file.
 '
@@ -124,6 +125,7 @@ Private Sub BuildPages()
     BuildBriefingsPage             ' modBuildBriefings
     BuildWatchPage                 ' modBuildWatch
     BuildReportsPage               ' modBuildReports
+    BuildDraftingPages             ' modBuildDrafting: Drafting, Templates, Admin: Routing
     BuildAdminPage                 ' modBuildAdmin
     BuildAuditPage                 ' modBuildAudit
     BuildProfilePage               ' modBuildProfile (a sidebar link)
@@ -133,6 +135,8 @@ End Sub
 Private Sub BuildAppDialogs()
     BuildMessagesDialogs           ' modBuildMessages
     BuildSubscriptionsDialogs      ' modBuildSubscriptions
+    Build_rptBriefing              ' modBuildBriefings: the printed briefing (report)
+    BuildDraftingDialogs           ' modBuildDrafting
 End Sub
 
 ' A page not built yet: its header and a note that says so, so the sidebar,
@@ -179,11 +183,13 @@ End Sub
 
 ' The shell: the sidebar of pages and the page host sfPage. At sign-in the
 ' pages a person's roles don't allow are hidden (ShowPagesForRoles).
-' Profile is a bottom link; it and the Message page, which no sidebar item
-' opens, come from frmMain's PageForm.
+' Profile is a bottom link; it, the Message page, Templates (from Drafting)
+' and Routing (from Admin), which no sidebar item opens, come from frmMain's
+' PageForm.
 Private Sub Build_frmMain()
     ShellBuild APP_NAME, "Message handling", _
-        Array("home|Home|pgHome|E80F", "messages|Messages|pgMessages|E715", "search|Search|pgSearch|E721", _
+        Array("home|Home|pgHome|E80F", "messages|Messages|pgMessages|E715", "drafting|Drafting|pgDrafting|E70F", _
+            "search|Search|pgSearch|E721", _
             "subscriptions|Subscriptions|pgSubscriptions|EA8F", "briefings|Briefings|pgBriefings|E8A5", _
             "watch|Watch turnover|pgWatchTurnover|E916", "reports|Reports|pgReports|E9D2", _
             "admin|Admin|pgAdmin|E716", "audit|Audit|pgAudit|E81C"), _

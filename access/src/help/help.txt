@@ -29,37 +29,304 @@ Press **Ctrl+K** and start typing the name of a page. Press **Enter** to go to t
 The message text ANCHOR shows is the official text as received. An AI summary, where a message has one, is shown apart from it in its own box marked **Not authoritative**: always act on the official text.
 
 === home | Home
-What needs you now: the messages you must acknowledge, the messages whose status changed, and the latest traffic.
+What needs you now: the messages you must acknowledge, the messages whose status changed, and the latest traffic. Click any message to read it.
+
+# The tiles
+- **Unread**: the messages you haven't opened yet.
+- **Acknowledgements due**: designated traffic you must still acknowledge. Traffic your own command sent never needs your acknowledgement.
+- **Action items open**: messages with an action item that still stands (not superseded, cancelled or expired).
+- **Status changes**: messages amended, corrected, superseded, cancelled or expired.
+
+# Requires your acknowledgement
+The messages you must acknowledge, the soonest due first, with how long is left or how long they are overdue. Open one and click **Acknowledge** on the Message page. The count at the top right says how many of your designated messages you have acknowledged.
+
+# Status changes and latest traffic
+**Status changes** lists the messages that are no longer simply current, with what replaced them or what they update. **Latest traffic** shows the 8 newest messages; **View all** goes to Messages.
 
 === messages | Messages
 Every message ANCHOR received, newest first. Pick one to see its preview; double-click it, or click **Open**, to read it in full.
 
+# Find a message
+- Type in the search box to find words in the subject, the reference or the originator.
+- **All**, **Unread** and **Ack due** show every message, only those you haven't read, or only those you must still acknowledge.
+- The three lists narrow it to one precedence, one message type or one classification.
+- Click a column heading to sort by it; click it again to reverse the order.
+- When nothing matches, **Clear filters** shows every message again.
+
+# Reading the list
+- A dot marks a message you haven't read.
+- **Precedence**: FLASH, IMMEDIATE, PRIORITY or ROUTINE.
+- **Status**: ACTIVE, or AMENDED, CORRECTED, SUPERSEDED, CANCELLED or EXPIRED. A superseded or cancelled message no longer directs action: open the message that replaced it.
+- **Ack due**: you must acknowledge it.
+
+# The preview
+The picked message's subject, reference, DTG and originator, its pills and the first lines of its official text. A classification above UNCLASSIFIED shows its demonstration note: every message in ANCHOR is fictional and unclassified.
+
+# Read and unread
+**Mark read** and **Mark unread** change the picked message; **Mark all read** marks every message read. They change only what you see. Right-click a row for the same actions.
+
 === message | Message
-One message: its official text as received, its integrity data, its status, and **Acknowledge** when it is designated traffic you must acknowledge.
+One message: its official text as received, its integrity data, its status, and **Acknowledge** when it is designated traffic you must acknowledge. Opening a message marks it read.
+
+# The official text
+The large box holds the message as ANCHOR formatted it. Switch to **Raw as received** to see the text exactly as it arrived from C2OIX, unchanged. The **AI summary** under it is a reading aid only, kept apart from the official text and marked **Not authoritative**: always act on the official text.
+
+# Status
+The banner under the subject says whether the message is current. A superseded, cancelled or amended message names the message that replaced it; click **Open** beside it to read that one.
+
+# Acknowledging
+When you must acknowledge the message, the bar on the right says by when; click **Acknowledge** once you have read it. The bar then shows when you acknowledged it. For traffic your own command sent, the bar says how many addressee commands acknowledged it, and the **Acks** tab lists each command, with the commands in each address group counted one by one.
+
+# The tabs
+- **Details**: the message type and communications class, the integrity data recorded at ingestion (C2OIX id, SHA-256, size, retention, received time) and any action item.
+- **Addressees**: who it was sent to and for information, the distribution, and the names of its attachments (the files stay in C2OIX).
+- **Acks**: the acknowledgement status of your command's own traffic.
+- **Related**: the messages it names that ANCHOR holds. Click one to open it.
+
+# Printing
+**Print** opens the official rendition: the classification marking at the top and bottom of every page, the heading block, the official text and the integrity block. Printed copies are uncontrolled. **Mark unread** puts the dot back on it under Messages.
 
 === search | Search
-Find messages by the words in them, their reference, originator, type, precedence and dates, and save a search to run it again.
+Find messages by the words in them, or narrow them down with filters, and save a search to run it again. The switch at the top picks **Basic**, **Advanced** or **Saved**.
+
+# Basic
+Type words in the box and click **Search**, or press **Enter**. Every word must appear somewhere in a message: its subject, reference, originator or text. Put a phrase in double quotes, such as "readiness report", to find those words together.
+
+# Advanced
+The same words box, with filters under it: part of the **reference**, the **originator**, the **message type**, the **class**, the **precedence**, the **classification**, the **lifecycle**, the **received** dates and whether an **acknowledgement** is required. Leave a filter blank to match any value. **Clear filters** empties them all; the words stay.
+
+# The results
+The newest message is first. Click a column's caption to sort by it. Double-click a message, or pick it and click **Open**, to read it in full. A classification above UNCLASSIFIED shows "(demo marking)": every message in ANCHOR is demonstration content.
+
+# Saving a search
+**Save search** keeps the words, and in Advanced the filters, under a name you choose. Saving under a name you already use replaces that search. **Saved** lists your saved searches: double-click one, or pick it and click **Run**, to run it again; **Delete** removes it. Only you see your saved searches.
+
+Every search you run is recorded in the audit trail.
 
 === subscriptions | Subscriptions
-The traffic you follow. Mandatory subscriptions are assigned by your command and can't be paused. A new subscription is a request that a Subscription Approver approves.
+The traffic you follow. The catalogue lists every subscription ANCHOR offers, with **your status** of each:
+- **Active**: you receive it.
+- **Paused**: you paused it; you don't receive it until you resume it.
+- **Pending Approval**: you asked for it and your unit's Subscription Approver hasn't decided yet.
+- **Denied**: the approver said no. Their reason shows on the right, and you can ask again.
+- **Not subscribed**: you haven't asked for it.
+
+# Mandatory subscriptions
+Subscriptions **assigned by command** always show Active. You receive them whatever you choose, and they can't be paused, requested or withdrawn.
+
+# Finding one
+Type in the search box to find a subscription by its name, description or category, or pick a **category**.
+
+# The picked subscription
+Pick a subscription to see, on the right, its category and usual delivery, where you stand, **what it matches** (message types, originators, keywords and precedence; "Any" where it doesn't narrow) and how many messages in ANCHOR match it now.
+- **Request...** asks for it (see Requesting a subscription).
+- **Pause** stops an active subscription for a while; **Resume** starts it again.
+- **Withdraw request** takes back a request before the approver decides it.
+
+=== subscriptions.request | Requesting a subscription
+Click **Request...** on a subscription you don't have, or one that was denied.
+- **How often**: **Real-time** as each message arrives, a **Daily Digest**, or **Weekly**. The subscription's usual choice is picked first.
+- **Deliver to**: **In app**, **Email** and **Teams**. Pick at least one.
+- **Justification** is required: say why you need it. The Subscription Approver reads it before deciding.
+
+**Submit for approval** sends the request; it shows as Pending Approval until the approver decides. You need the Subscription Requester role to make a request.
 
 === briefings | Briefings
-Build a briefing from a period's traffic, pick the messages to brief, and print it.
+Build a briefing from a period's traffic, pick the messages to brief, and print it. The page is for Briefing Creators.
+
+# Saved briefings
+The briefings saved so far, newest first. Click one to open it in the builder. **New briefing** (or **Ctrl+N**) starts an empty one. If the open briefing has changes you haven't saved, you are asked first.
+
+# Building a briefing
+- Give it a **title** and a **period** (From and To, both days included).
+- Set the filters if you want: a **precedence**, a **message type** (from the list of message types your admin keeps) and a **community** (text the message's communities contain, such as Safety). Leave them on All, or blank, for any.
+- Click **Add matching messages**. The period's messages that match are added to the list, not ticked. Change the filters and add again to add more.
+- Tick the messages to brief: pick a row and click **Tick / untick**, or double-click it.
+- **Note...** writes what the briefing says about the picked message. A message with a note is ticked.
+- Write any notes on the whole briefing in the box under the list.
+- **Save** (or **Ctrl+S**) saves the briefing with its ticked messages. Unticked messages aren't saved. Saving is recorded in the audit trail.
+
+=== briefings.print | The printed briefing
+**Print briefing** opens the saved briefing to print (it saves your changes first). It shows:
+- a classification line at the top and bottom of each page: the highest classification of the messages in it;
+- the title, the period, who prepared it and when, and the briefing's notes;
+- each message in order of precedence, newest first: its reference, DTG, precedence and classification, its subject, then your note or, without one, **the first paragraph of its official text**.
+
+A briefing never uses a message's AI summary: the AI summary is not the official record.
+
+ANCHOR's classifications are for demonstration only. A level above UNCLASSIFIED shows "DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED." beside it.
 
 === watch | Watch turnover
-The notes, ongoing topics and checklist for handing over the watch.
+Review traffic, resolve priorities and take the watch. Everyone who uses ANCHOR can use this page.
+
+# The counts
+- **Unread messages**: the messages you haven't opened yet.
+- **Acknowledgements due**: designated traffic you must still acknowledge.
+- **Open action items**: messages that carry an action item and still direct action (not superseded, cancelled or expired).
+- **Turnover checklist**: how many items of the open turnover are ticked.
+
+# Watch notes
+Notes the watch leaves for the next one, open notes first. **Add note** adds one; pick a note and click **Close** once it is dealt with. Closed notes stay listed under the open ones.
+
+# Ongoing topics
+The topics the watch is following. **Add topic** adds one as Active. Pick a topic and click **Status** to set it **Active**, **Monitoring** or **Closed**; its last update changes to now.
+
+=== watch.checklist | The turnover checklist
+- Click **Start turnover** when you take over. Only one turnover is open at a time.
+- Click an item to tick it once it is done; click it again to untick it.
+- **Complete turnover** needs every item ticked. Completing it is recorded in the audit trail.
+
+The checklist's items are kept by an admin.
 
 === reports | Reports
-Who has acknowledged the designated traffic, and how much traffic arrived by precedence and type.
+Who has acknowledged the designated traffic, and how much traffic arrived. The page is for Report Viewers.
+
+# The period
+Pick **7 days**, **30 days** or **All**. Everything on the page covers the messages received in that period.
+
+# The tiles
+- **Messages received** in the period.
+- **Acknowledged**: the share of the acknowledgements owed that were made.
+- **Acknowledgements owed**: how many are still to come.
+- **Overdue messages**: messages past their acknowledgement due time that not everyone has acknowledged.
+
+=== reports.ack | Acknowledgement accountability
+Every message in the period that must be acknowledged, except one superseded or cancelled. Overdue messages are listed first.
+- For traffic we **received**, every active ANCHOR user acknowledges it for themselves: "3 of 12" means 3 of the 12 have.
+- For traffic **our command sent**, the addressee commands acknowledge it. An address group counts each of its commands; a command reached as TO and as INFO counts once.
+
+A message is **Acknowledged** when everyone has, **Overdue** when its due time passed first, otherwise **In Progress**. Pick a message to see under the table who has acknowledged it and when, and who hasn't. **Open message**, or a double-click, reads it.
+
+**Export CSV** saves the table as a CSV file. Exports are recorded in the audit trail.
+
+ANCHOR's classifications are for demonstration only. A level above UNCLASSIFIED shows its demonstration note beside it.
+
+=== reports.traffic | Traffic measures
+How many of the period's messages there were by **precedence**, by **type** (named from the list of message types), by **classification** and by **lifecycle**, with each one's share of the period's traffic.
 
 === admin | Admin
-Approve or deny subscription requests, review the rules that make delivery mandatory, and manage ANCHOR users and their roles.
+Approve or deny subscription requests, review the rules that make delivery mandatory and the command access groups, and, for System Admins, manage ANCHOR users and the message types. Subscription Approvers see **Approvals & Access**; System Admins also see **Users** and **Message types** in the switch at the top.
+
+# Subscription approval queue
+Every request waiting for a decision, oldest first. A request isn't active until it is approved. Pick one, then:
+- **Approve**: it becomes Active and its traffic starts reaching the requester.
+- **Deny**: you are asked why. The requester sees the reason on their Subscriptions page, and can ask again.
+You can't decide your own request: another Subscription Approver does. Every decision is recorded in the audit trail.
+
+# Mandatory alert rules
+The business rules that make delivery mandatory: which traffic they match, who must acknowledge it and within how long, and who it escalates to. They are set by command policy and are read only here.
+
+# Command access groups
+The groups traffic is released to, what each is based on (organization, role or group), how many members it has and the traffic it covers. Changes need a System Admin. Designated Release Authority processes remain outside ANCHOR.
+
+=== admin.users | Users
+For System Admins: the people who can use ANCHOR, and their roles.
+
+# Adding someone
+Type part of a name in the box at the top, pick the person, then click **Add person**. Only people in the shared Personnel file can be picked. They start as **Message Viewer** and **Subscription Requester**; give them more roles on the right.
+
+# Changing a person
+Pick someone in the list. On the right change their billet, unit, community, location and DSN, tick the roles they hold, and turn **Can use ANCHOR** on or off. Click **Save** (or press **Ctrl+S**) to save it all; **Undo changes** puts back what was saved. Leaving the person with changes not saved asks whether to save them.
+- A person turned off can't open ANCHOR. **Show deactivated people** lists them, to turn them back on.
+- You can't turn off your own access or remove your own System Admin role: another System Admin can.
+- ANCHOR always keeps one System Admin who can sign in, so the last one keeps the role.
+Role changes, access changes and profile changes are recorded in the audit trail. A change to your own roles shows in the sidebar at once.
+
+=== admin.types | Message types
+For System Admins: the message types traffic is sorted, searched and drafted by, by category, and the five communications classes (read only).
+
+# Adding and changing a type
+Click **Add type**, type its **code** as messages name it (GENADMIN), its **name**, a **category** (pick one or type a new one) and a description, then **Save**. The code can't change once added, because messages name their type by it. Pick a type to change its name, category or description.
+
+# Retiring a type
+**Retire** stops offering a type for new traffic, filters and drafting; messages of that type keep it. **Restore** offers it again. Types are never deleted. Every change is recorded in the audit trail.
 
 === audit | Audit
-Every audited action, oldest to newest. Entries are never changed or removed: each one carries a hash of the entry before it, and **Verify** recomputes the whole chain to show that none was.
+For System Admins: every audited action. Entries are never changed or removed: each one carries the hash of the entry before it, so a changed, reordered or removed entry breaks the chain from that entry on.
+
+# Tiles
+How many entries the trail holds, how many failed or ended with a warning, and the **Chain** status as your last **Verify chain** on this page found it.
+
+# Verify chain
+**Verify chain** recomputes every entry's hash, from the first to the last. "All N entries verified" means none was changed since it was recorded; otherwise the alert names the first entry that doesn't fit. The check itself is recorded in the trail.
+
+# Finding entries
+Search the resource and details, or pick an **action**, a **result**, a **user** and a range of days. The switch on the list shows the newest or the oldest first, and a column's caption sorts by it. Pick an entry to see every column of it on the right, both hashes included; **Copy** puts it on the clipboard.
+
+# Export
+**Export** saves every entry the filters match, with every column, as a CSV file. The export is recorded in the trail too. A classification above UNCLASSIFIED shows "(demo marking)": every entry in ANCHOR is demonstration content.
 
 === profile | Profile
-Your details and roles, the colors the app uses on this computer, and **Sign out**.
+Your details and roles, your email notices, the colors the app uses on this computer, and **Sign out**.
+
+# Your details
+Your name, rank, sign-in name, email and command come from the shared Personnel file; ask a Personnel admin to change them. Your billet, unit, community, location, DSN and groups are your ANCHOR profile, which a System Admin keeps under Admin: Users.
+
+# Roles and permissions
+Every ANCHOR role, what it allows and whether you hold it. Your roles decide the pages in the sidebar. Ask a System Admin for a role you need.
+
+# Notices, colors and signing out
+- **Email notices** sends an email to the Personnel file's address when traffic you must act on arrives. It is saved as soon as you flip it.
+- **Appearance** picks the palette the whole app uses on this computer.
+- **Sign out** lets someone else sign in on this copy without closing Access.
+=== drafting | Drafting & Release
+Draft outgoing command traffic, route it through its review chain and release it. A released message joins **Messages** as the command's own traffic.
+
+# The list
+Every draft, the latest change first. The chips show **All**, **Waiting on me** (a step you hold), **My drafts** and **Released**. Type in the search box to find a draft by its subject, type, sequence, drafter or holder. **Your action** marks a draft that waits on you.
+
+# Writing a draft
+Click **New draft** (or press **Ctrl+N**) and pick **(Blank draft)** or a template. A template asks you for each of its fields, then opens the draft. On the **Draft** tab, fill in the subject, the message type, class, precedence and classification, the FM line and the addressees (separate them with semicolons), and the text. A blank line starts the next paragraph; ANCHOR numbers them for you. Click **Save** (or **Ctrl+S**) as you go. Only the drafter edits a draft, and only before it is submitted or after it is returned.
+
+# Classification
+ANCHOR carries UNCLASSIFIED, CUI, CONFIDENTIAL and SECRET for demonstration only. A draft marked above UNCLASSIFIED shows its demo marking, and its text carries the line UNCLASSIFIED - CLASSIFICATION MARKINGS FOR TESTING PURPOSES ONLY.
+
+# The message as it transmits
+The **Message** tab shows the text as it would go out: the classification lines, precedence, DTG, FM, TO, INFO, MSGID, SUBJ, RMKS and the local sequence, in capitals when the command sets that. The DTG and sequence are filled in at release. The naval format check runs on it as it would go if released now: what it lists under **To fix** stops a submit and a release; its warnings never do.
+
+=== drafting.route | Routing and release
+# Submitting
+On the **Route** tab, **Submit for routing** sends the draft on the routing workflow that matches its message type and originator, to the first step's holder. It can't be submitted without a subject, an action addressee and text, while the format check finds something to fix, or while a step of its chain has nobody who can act on it.
+
+# Reviewing
+When a draft waits on you, its Route tab shows **Endorse** (pass it to the next step) and **Return** (send it back to its drafter). Type a comment; a return needs one. The drafter corrects a returned draft and resubmits it, which starts its chain again.
+
+# Releasing
+The last step of every chain is the release step. Its holder releases the draft when they are a release authority for its message type and hold the **Designated Release Authority** role. **Release** assigns the DTG (now, in UTC) and the next local sequence, freezes the text and adds the message to Messages. **Open in Messages** opens it there.
+
+# Withdrawing and the log
+The drafter can **Withdraw** a draft before release; it is kept for the record. The **Log** tab lists every step taken on the draft, newest first. The log is only ever added to, and every action is in the audit trail.
+
+=== templates | Templates
+Reusable messages with fields the drafter fills in. Write a field as **{{ Name }}** in the subject, the addressees or the text. Open it with **Templates** at the top of the **Drafting** page.
+
+# Versions
+A template has numbered versions. A new version is **Inactive**, and only an inactive version can change. **Activate** makes it the version drafts start from and retires the name's earlier active version. **Retire** stops new drafts starting from it. **New version** copies a version, inactive, to edit. Drafts already started keep their text.
+
+# Starting a draft
+Pick an active template and click **Start draft**. ANCHOR asks for each field in turn, with its hint, then opens the new draft on the Drafting page.
+
+# Who changes templates
+ANCHOR admins add, edit, activate and retire templates. Everyone starts drafts from them. A template's fixed text goes into every draft whatever its classification, so it can't carry a classification marking: Activate refuses one.
+
+=== templates.fields | Field rules
+Each field has rules, set on the **Fields** tab with **Field rules** (or a double-click): whether a draft must fill it, a maximum length (0 for no limit), a default filled in for new drafts, and a hint shown when the drafter fills it in. The fields follow the tags: saving the template adds a field for a new tag and drops one whose tag is gone.
+
+=== routing | Admin: Routing
+How outgoing traffic is routed and released. For ANCHOR admins; open it with **Routing** at the top of the **Admin** page.
+
+# Workflows
+A draft takes the most specific active workflow for its message type and originator: one naming its type comes before one naming only its originator, and one naming neither matches anything. Each workflow is a chain of steps, each held by a person from the Personnel file; the last step, and only the last, releases. A step whose holder is turned off or has left strands the chain until you name the relief. Changes to a chain apply to drafts submitted from then on.
+- **New workflow** adds one, off, with a review and a release step.
+- **Add step**, **Change**, **Up**, **Down** and **Remove** change the chain at once.
+- **Turn on** needs a whole chain. An active workflow's chain can't be broken: turn it off first to rework it.
+
+# Release authority
+Who may release: a designation for every message type or for one. Releasing also needs the **Designated Release Authority** role (Admin: Users) and holding the draft's release step.
+
+# Command settings
+The text case (every message in capitals, or as typed), the FM line, the MSGID originator and the next local sequence number. The sequence is # and four digits, as the naval format check requires, and can't go back to a number a released message took.
+
 === directory | Personnel
 One shared Personnel file holds everyone who can use the Navy apps built on
 this kit. Your Windows sign-in finds you in it, so most days you don't sign in

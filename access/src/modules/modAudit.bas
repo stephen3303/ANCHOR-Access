@@ -25,7 +25,9 @@ Option Explicit
 
 Private Const GENESIS As String = "ANCHOR-AUDIT-GENESIS"
 
-' Add one audit row for the signed-in person and seal it.
+' Add one audit row for the signed-in person and seal it. Device is the
+' computer's name; Location is the person's unit (the web app's audit shows
+' the unit there).
 '   action    what was done, a short word or two: View, Acknowledge, Search, Export
 '   resource  what it was done to: "Message (COMSUBLANT 078/26)"
 '   details   one or two sentences
@@ -63,10 +65,18 @@ End Sub
 ' Errors: the engine's.
 Public Function AuditSealPending() As Long
     Dim db As DAO.Database, rs As DAO.Recordset, prev As String, firstId As Long, n As Long
+    ' Recordsets, not DMin/DLookup: a domain function reads outside the
+    ' caller's transaction, so it can't see a row AuditLog added inside one
+    ' (Create draft, Acknowledge), and that row would stay unsealed.
     Set db = CurrentDb
-    firstId = Nz(DMin("AuditID", "tblAudit", "RowHash Is Null"), 0)
+    Set rs = db.OpenRecordset("SELECT Min(AuditID) AS FirstID FROM tblAudit WHERE RowHash Is Null", dbOpenSnapshot)
+    firstId = Nz(rs!FirstID, 0)
+    rs.Close
     If firstId = 0 Then Exit Function
-    prev = Nz(DLookup("RowHash", "tblAudit", "AuditID=" & Nz(DMax("AuditID", "tblAudit", "AuditID<" & firstId), 0)), GENESIS)
+    prev = GENESIS
+    Set rs = db.OpenRecordset("SELECT TOP 1 RowHash FROM tblAudit WHERE AuditID<" & firstId & " ORDER BY AuditID DESC", dbOpenSnapshot)
+    If Not rs.EOF Then prev = Nz(rs!RowHash, GENESIS)
+    rs.Close
     Set rs = db.OpenRecordset("SELECT * FROM tblAudit WHERE AuditID>=" & firstId & " ORDER BY AuditID", dbOpenDynaset)
     Do While Not rs.EOF
         If IsNull(rs!RowHash) Then

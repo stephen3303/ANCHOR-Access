@@ -25,6 +25,10 @@ Option Explicit
 ' The Message page's key (frmMain.PageForm).
 Public Const PAGE_MESSAGE As String = "message"
 
+' The demo annotation beside any classification above UNCLASSIFIED (see
+' ClassificationMarking at the end).
+Public Const DEMO_MARKING_NOTE As String = "DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED."
+
 ' Rank of a precedence, highest first: FLASH 1, IMMEDIATE 2, PRIORITY 3,
 ' ROUTINE 4, anything else 5. For sorting (PrecedenceRankSql in queries).
 Public Function PrecedenceRank(ByVal p As Variant) As Long
@@ -114,14 +118,23 @@ End Sub
 
 ' Mark every message read (Messages' Mark all read). Returns how many changed.
 Public Function MarkAllRead() As Long
-    Dim pid As Long, n As Long
+    Dim pid As Long, n As Long, ws As DAO.Workspace, inTrans As Boolean
     If Not DataLinked() Then Exit Function
     pid = SignedInPersonID()
     If pid = 0 Then Exit Function
+    On Error GoTo Fail
+    Set ws = DBEngine.Workspaces(0)
+    ws.BeginTrans: inTrans = True              ' both halves or neither
     n = KitExecute("UPDATE tblMessageUserState SET ReadState='read' WHERE PersonID=" & pid & " AND ReadState<>'read'")
     n = n + KitExecute("INSERT INTO tblMessageUserState (MessageID, PersonID, ReadState, FirstReadOn) SELECT MessageID, " & pid & _
         ", 'read', Now() FROM tblMessages WHERE MessageID NOT IN (SELECT MessageID FROM tblMessageUserState WHERE PersonID=" & pid & ")")
+    ws.CommitTrans: inTrans = False
     MarkAllRead = n
+    If n > 0 Then AuditTry "Mark read", "Messages", n & " messages marked read at once."
+    Exit Function
+Fail:
+    If inTrans Then RollbackKeepingError ws
+    RaiseAgain "modMessages.MarkAllRead"
 End Function
 
 ' True when the signed-in person must still acknowledge message mid.
@@ -152,6 +165,8 @@ Public Function UnreadCount() As Long
 End Function
 
 ' Record the signed-in person's acknowledgement of message mid, and audit it.
+' The acknowledgement and its audit row are one transaction: an
+' acknowledgement that can't be audited is not recorded.
 ' Errors: 5 when the message needs no acknowledgement from them (not
 '   designated traffic, their command's own, or already acknowledged);
 '   KitExecute's.
@@ -236,4 +251,39 @@ Public Function LifecycleNotice(ByVal lifecycle As String, ByVal replacedBy As V
         Case "CORRECTED"
             LifecycleNotice = "Corrected" & IIf(IsNull(relatesTo), "", ": corrects " & relatesTo) & "."
     End Select
+End Function
+
+' ---------------------------------------------------------------------------
+' Classification marking (demonstration only)
+' ---------------------------------------------------------------------------
+
+' ANCHOR carries UNCLASSIFIED, CUI, CONFIDENTIAL and SECRET, for
+' demonstration only (Stephen, 2026-11-05): every data file holds synthetic
+' content. Wherever a level above UNCLASSIFIED shows (a list row, the message
+' view, a print, a briefing, a draft), its demo annotation shows beside it.
+
+' True for a classification above UNCLASSIFIED (anything but UNCLASSIFIED or blank).
+Public Function IsMarkedAboveUnclass(ByVal classif As Variant) As Boolean
+    Dim c As String
+    c = UCase$(Trim$(Nz(classif, "")))
+    IsMarkedAboveUnclass = (Len(c) > 0 And c <> "UNCLASSIFIED" And c <> "UNCLASS")
+End Function
+
+' The marking line for a banner or a print: "UNCLASSIFIED", or for a higher
+' level "SECRET -- DEMONSTRATION MARKING ONLY. CONTENT IS UNCLASSIFIED."
+Public Function ClassificationMarking(ByVal classif As Variant) As String
+    Dim c As String
+    c = UCase$(Trim$(Nz(classif, "")))
+    If Len(c) = 0 Then c = "UNCLASSIFIED"
+    If IsMarkedAboveUnclass(c) Then
+        ClassificationMarking = c & " -- " & DEMO_MARKING_NOTE
+    Else
+        ClassificationMarking = c
+    End If
+End Function
+
+' The same as an SQL expression over column col, for list columns.
+Public Function ClassificationMarkingSql(Optional ByVal col As String = "m.Classification") As String
+    ClassificationMarkingSql = "IIf(Nz(" & col & ",'UNCLASSIFIED') In ('UNCLASSIFIED','UNCLASS',''),Nz(" & col & ",'UNCLASSIFIED')," & _
+        col & " & ' (demo marking)')"
 End Function

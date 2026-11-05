@@ -74,13 +74,16 @@ Err_Handler:
 End Function
 
 ' The form for a page no sidebar item opens (the shell's PageForm hook):
-' Profile (a bottom link) and the Message page (opened from any message
-' list, modMessages.OpenMessage).
+' Profile (a bottom link), the Message page (opened from any message list,
+' modMessages.OpenMessage), Templates (from Drafting) and Routing (from
+' Admin).
 Public Function PageForm(ByVal key As String) As String
     On Error GoTo Err_Handler
     Select Case key
         Case "profile": PageForm = "pgProfile"
         Case "message": PageForm = "pgMessage"
+        Case "templates": PageForm = "pgTemplates"
+        Case "routing": PageForm = "pgRouting"
     End Select
     Exit Function
 Err_Handler:

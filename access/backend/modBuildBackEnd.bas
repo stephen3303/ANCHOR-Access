@@ -89,6 +89,11 @@ Private Sub CreateTables(db As DAO.Database)
       "Location TEXT(60), Dsn TEXT(30), Groups TEXT(255), IsAdmin YESNO, IsActive YESNO, NotifyEmail YESNO, LastSeenOn DATETIME)"
     ExecDdl db, "CREATE TABLE tblPersonRoles (PersonID LONG NOT NULL, RoleID LONG NOT NULL, CONSTRAINT pkPersonRoles PRIMARY KEY (PersonID, RoleID))"
 
+    ' ---- Message types and communications classes (Stephen's list, 2026-11-05) ----
+    ExecDdl db, "CREATE TABLE tblMessageTypes (TypeID AUTOINCREMENT PRIMARY KEY, TypeCode TEXT(30) NOT NULL, TypeName TEXT(100), " & _
+      "Category TEXT(30), Description TEXT(255), IsActive YESNO, SortOrder INTEGER)"
+    ExecDdl db, "CREATE TABLE tblMessageClasses (ClassCode TEXT(1) PRIMARY KEY, ClassName TEXT(100), Description TEXT(255))"
+
     ' ---- Commands and address groups (ack tracking expands a group to its commands) ----
     ExecDdl db, "CREATE TABLE tblAddressGroups (GroupID AUTOINCREMENT PRIMARY KEY, GroupName TEXT(100) NOT NULL)"
     ExecDdl db, "CREATE TABLE tblGroupMembers (GroupID LONG NOT NULL, CommandName TEXT(100) NOT NULL, " & _
@@ -101,7 +106,7 @@ Private Sub CreateTables(db As DAO.Database)
       "Classification TEXT(20) NOT NULL, Importance TEXT(10), Lifecycle TEXT(12) NOT NULL, RelatesTo TEXT(60), " & _
       "ReplacedBy TEXT(60), Communities TEXT(255), AckRequired YESNO, AckDue DATETIME, ActionText TEXT(255), " & _
       "ActionSuspense TEXT(20), ActionAssignedTo TEXT(60), C2oixId TEXT(30), Sha256 TEXT(64), SizeKb LONG, " & _
-      "Retention TEXT(40), Distribution TEXT(255), Related TEXT(255), AiSummary MEMO, RawText MEMO, BodyText MEMO)"
+      "MsgClass TEXT(1), Retention TEXT(40), Distribution TEXT(255), Related TEXT(255), AiSummary MEMO, RawText MEMO, BodyText MEMO)"
     ExecDdl db, "CREATE TABLE tblMessageSections (SectionID AUTOINCREMENT PRIMARY KEY, MessageID LONG NOT NULL, " & _
       "SortOrder INTEGER, Heading TEXT(100), Body MEMO)"
     ExecDdl db, "CREATE TABLE tblAttachments (AttachmentID AUTOINCREMENT PRIMARY KEY, MessageID LONG NOT NULL, " & _
@@ -140,7 +145,7 @@ Private Sub CreateTables(db As DAO.Database)
       "Criteria MEMO, CreatedOn DATETIME)"
     ExecDdl db, "CREATE TABLE tblBriefings (BriefingID AUTOINCREMENT PRIMARY KEY, Title TEXT(150) NOT NULL, PersonID LONG, " & _
       "PersonName TEXT(100), CreatedOn DATETIME, PeriodFrom DATETIME, PeriodTo DATETIME, Criteria MEMO, Notes MEMO)"
-    ExecDdl db, "CREATE TABLE tblBriefingItems (BriefingID LONG NOT NULL, MessageID LONG NOT NULL, SortOrder INTEGER, Note MEMO, " & _
+    ExecDdl db, "CREATE TABLE tblBriefingItems (BriefingID LONG NOT NULL, MessageID LONG NOT NULL, SortOrder INTEGER, ItemNote MEMO, " & _
       "CONSTRAINT pkBriefingItems PRIMARY KEY (BriefingID, MessageID))"
     ExecDdl db, "CREATE TABLE tblWatchNotes (NoteID AUTOINCREMENT PRIMARY KEY, NoteText MEMO NOT NULL, PersonID LONG, " & _
       "PersonName TEXT(100), CreatedOn DATETIME, IsOpen YESNO)"
@@ -161,10 +166,12 @@ Private Sub CreateTables(db As DAO.Database)
       "error_number LONG, description LONGTEXT, err_source TEXT(255), source TEXT(255), call_trail LONGTEXT, " & _
       "context LONGTEXT, page TEXT(32), active_form TEXT(64), active_control TEXT(64), username TEXT(150), " & _
       "windows_user TEXT(64), computer TEXT(64), fe_build TEXT(32), access_version TEXT(32))"
+    CreateDraftingTables db         ' drafting and release (the block at the end)
 End Sub
 
 Private Sub CreateIndexes(db As DAO.Database)
     ExecDdl db, "CREATE UNIQUE INDEX uxRoleCode ON tblRoles (RoleCode)"
+    ExecDdl db, "CREATE UNIQUE INDEX uxTypeCode ON tblMessageTypes (TypeCode)"
     ExecDdl db, "CREATE UNIQUE INDEX uxGroupName ON tblAddressGroups (GroupName)"
     ExecDdl db, "CREATE UNIQUE INDEX uxMsgKey ON tblMessages (MsgKey)"
     ExecDdl db, "CREATE INDEX ixMsgReceived ON tblMessages (ReceivedOn)"
@@ -180,6 +187,7 @@ Private Sub CreateIndexes(db As DAO.Database)
     ExecDdl db, "CREATE INDEX ixAuditAt ON tblAudit (LoggedAt)"
     ExecDdl db, "CREATE INDEX ixSavedSearchPerson ON tblSavedSearches (PersonID)"
     ExecDdl db, "CREATE INDEX ixErrorLogged ON error_log (logged_at)"
+    CreateDraftingIndexes db
 End Sub
 
 ' Relationship nm: ct.fk refers to pt.pk, enforced, deleting the children
@@ -207,6 +215,7 @@ Private Sub CreateRelationships(db As DAO.Database)
     AddRelation db, "rBI_M", "tblMessages", "MessageID", "tblBriefingItems", "MessageID"
     AddRelation db, "rTC_T", "tblTurnovers", "TurnoverID", "tblTurnoverChecks", "TurnoverID", True
     AddRelation db, "rTC_I", "tblTurnoverChecklist", "ItemID", "tblTurnoverChecks", "ItemID"
+    CreateDraftingRelationships db
 End Sub
 
 ' The lists every data file has, demo traffic or not.
@@ -214,6 +223,7 @@ Private Sub SeedLookups(db As DAO.Database)
     ExecDdl db, "INSERT INTO tblSettings VALUES ('SchemaVersion','1','Back-end schema version')"
     ExecDdl db, "INSERT INTO tblSettings VALUES ('CommandSource','COMSUBLANT','The source code of this command''s own traffic')"
     ExecDdl db, "INSERT INTO tblSettings VALUES ('CommandName','Commander, Submarine Force Atlantic','This command''s name')"
+    SeedMessageTypes db
     ' Business rules that make delivery mandatory (the web app's Admin page).
     AddRule db, 1, "Precedence", "FLASH, IMMEDIATE", "All addressed units", 2, "Department Head, then XO"
     AddRule db, 2, "Message type", "SAFETY MSG", "All personnel", 24, "Safety Officer"
@@ -223,6 +233,50 @@ Private Sub SeedLookups(db As DAO.Database)
     AddAccess db, "COMSUBLANT N6", "Role", 14, "Directorate traffic, officer-only"
     AddAccess db, "Comms Division", "Role", 9, "Unit traffic, comms admin"
     AddAccess db, "SUBRON Staff", "Group", 38, "Squadron traffic"
+    SeedDraftingLookups db
+End Sub
+
+' The message types (administrative, operational, safety, and the web app's
+' command traffic types) and the five communications classes. Admins can add
+' more; drafting and search pick from this list.
+Private Sub SeedMessageTypes(db As DAO.Database)
+    Dim t As Variant, p() As String, i As Long
+    For Each t In Array( _
+            "NAVADMIN|Navy administrative message|Administrative & General|Navy-specific administrative messages to all Navy units and the Marine Corps", _
+            "ALNAV|All Navy message|Administrative & General|SECNAV messages to all Navy and Marine Corps activities", _
+            "ALNAVRESFOR|All Navy Reserve Force message|Administrative & General|Navy Reserve administrative messages", _
+            "ALSAFE|All safety message|Administrative & General|Naval Safety Command safety-related messages", _
+            "GENADMIN|General administrative message|Administrative & General|Standard narrative format for most administrative messages", _
+            "CIM|Communications Improvement Memorandum|Administrative & General|Post-incident training notice on procedural errors", _
+            "OPGEN|Operational general message|Operational|Policy, general instructions and common warfare information", _
+            "OPTASK|Operational task message|Operational|Specific tasking and resource allocation", _
+            "OPSTAT|Operational status message|Operational|Status reports and operational data", _
+            "WARNORD|Warning Order|Operational|Preliminary notice of impending action, to allow planning", _
+            "LOI|Letter of Instruction|Operational|Planning guidance when a formal order is not required", _
+            "OPNAVINST|OPNAV instruction|Web app traffic|Chief of Naval Operations instruction", _
+            "MARADMIN|Marine Corps administrative message|Web app traffic|Marine Corps administrative messages", _
+            "NAVSEAINST|NAVSEA instruction|Web app traffic|Naval Sea Systems Command instruction", _
+            "COMSUBLANT MSG|COMSUBLANT message|Web app traffic|Commander, Submarine Force Atlantic traffic", _
+            "COMSUBFOR INST|COMSUBFOR instruction|Web app traffic|Submarine Force instruction", _
+            "FLEET MSG|Fleet message|Web app traffic|Fleet-wide operational traffic", _
+            "SAFETY MSG|Safety message|Web app traffic|Safety direction to all personnel", _
+            "HYDRO|Hydrographic advisory|Special|Hydrographic and navigation advisories", _
+            "NOTAM|Notice to Airmen and Mariners|Special|Navigation advisories", _
+            "Q MESSAGE|Q message|Special|Specialized question and answer messages", _
+            "ALL SHIPS PRESENT|All ships present message|Special|Broadcast to all ships in a designated area", _
+            "RED CROSS|Red Cross message|Special|Humanitarian and Red Cross communications")
+        p = Split(t, "|"): i = i + 1
+        ExecDdl db, "INSERT INTO tblMessageTypes (TypeCode, TypeName, Category, Description, IsActive, SortOrder) VALUES ('" & _
+            p(0) & "','" & p(1) & "','" & p(2) & "','" & p(3) & "',True," & i & ")"
+    Next
+    For Each t In Array("A|Official Department of Defense|Official DoD messages (the largest volume)", _
+            "B|Other U.S. Government|Other U.S. Government departments and agencies", _
+            "C|Broadcast|Broadcast traffic for all nationalities (weather, hydrographic data)", _
+            "D|Private, toll|Private messages for which the Navy collects tolls (press)", _
+            "E|Personal|Personal messages to and from naval personnel, free over Navy circuits")
+        p = Split(t, "|")
+        ExecDdl db, "INSERT INTO tblMessageClasses (ClassCode, ClassName, Description) VALUES ('" & p(0) & "','" & p(1) & "','" & p(2) & "')"
+    Next
 End Sub
 
 Private Sub AddRule(db As DAO.Database, ByVal ord As Long, ByVal kind As String, ByVal match As String, ByVal aud As String, _
@@ -250,6 +304,7 @@ Private Sub SeedDemo(db As DAO.Database, ByVal folder As String)
             "tblTurnoverChecklist")
         LoadTsv db, CStr(t), folder & t & ".tsv"
     Next
+    SeedDraftingDemo db
 End Sub
 
 ' Add the rows of one seed file to table tbl (see tools\make_seed.py for the format).
@@ -275,7 +330,7 @@ Private Sub LoadTsv(db As DAO.Database, ByVal tbl As String, ByVal path As Strin
                     Case "MsgKey"
                         If tbl = "tblMessages" Then rs!MsgKey = v Else rs!MessageID = ParentID(db, "tblMessages", "MessageID", "MsgKey", v)
                     Case "SubName"
-                        rs!SubID = ParentID(db, "tblSubscriptions", "SubID", "SubName", v)
+                        If tbl = "tblSubscriptions" Then rs!SubName = v Else rs!SubID = ParentID(db, "tblSubscriptions", "SubID", "SubName", v)
                     Case "GroupName"
                         rs!GroupID = GroupIdFor(db, CStr(v))
                     Case Else
@@ -356,3 +411,144 @@ Private Function ReadUtf8(ByVal path As String) As String
     ReadUtf8 = st.ReadText(-1)
     st.Close
 End Function
+
+' ---------------------------------------------------------------------------
+' Drafting and release (came over from Message Generator, Stephen 2026-11-05)
+' ---------------------------------------------------------------------------
+' Outgoing command traffic (the front end's modDrafting, modTemplates and
+' modRouting): drafts and their paragraphs, each draft's route (one row per
+' step, RouteNo counting the submits), the routing log (tblRoutingEvents,
+' which the app only appends to), templates and their field rules, the
+' routing workflows and their steps, release authorities, and the one row of
+' command transmission settings. Steps and designations name a Personnel
+' person_id; the name is kept with a draft's step for the record.
+
+Private Sub CreateDraftingTables(db As DAO.Database)
+    ExecDdl db, "CREATE TABLE tblDrafts (DraftID AUTOINCREMENT PRIMARY KEY, Subject TEXT(255), MsgType TEXT(30), MsgClass TEXT(1), " & _
+      "Precedence TEXT(12), Classification TEXT(20), Originator TEXT(60), ToLine TEXT(255), InfoLine TEXT(255), TemplateID LONG, " & _
+      "DrafterID LONG, DrafterName TEXT(100), Status TEXT(12) NOT NULL, WorkflowID LONG, RouteNo LONG, CreatedOn DATETIME, " & _
+      "UpdatedOn DATETIME, Dtg TEXT(20), Msn TEXT(10), LocalSequence TEXT(12), RenderedText MEMO, ReleasedOn DATETIME, " & _
+      "ReleasedByID LONG, ReleasedByName TEXT(100), ReleaseDesignation TEXT(100), MessageID LONG)"
+    ExecDdl db, "CREATE TABLE tblDraftParagraphs (ParagraphID AUTOINCREMENT PRIMARY KEY, DraftID LONG NOT NULL, SortOrder INTEGER, ParaText MEMO)"
+    ExecDdl db, "CREATE TABLE tblDraftRoute (RouteStepID AUTOINCREMENT PRIMARY KEY, DraftID LONG NOT NULL, RouteNo LONG NOT NULL, " & _
+      "StepOrder INTEGER NOT NULL, StepTitle TEXT(100), StepAction TEXT(10), PersonID LONG, PersonName TEXT(100), " & _
+      "StepStatus TEXT(10) NOT NULL, ActedOn DATETIME, StepComment MEMO)"
+    ExecDdl db, "CREATE TABLE tblRoutingEvents (EventID AUTOINCREMENT PRIMARY KEY, DraftID LONG NOT NULL, EventType TEXT(12) NOT NULL, " & _
+      "EventAt DATETIME NOT NULL, ActorID LONG, ActorName TEXT(100), StepTitle TEXT(100), EventComment MEMO)"
+    ExecDdl db, "CREATE TABLE tblTemplates (TemplateID AUTOINCREMENT PRIMARY KEY, TemplateName TEXT(100) NOT NULL, VersionNo LONG NOT NULL, " & _
+      "Description TEXT(255), MsgType TEXT(30), MsgClass TEXT(1), Precedence TEXT(12), Classification TEXT(20), ToLine TEXT(255), " & _
+      "InfoLine TEXT(255), Subject TEXT(255), BodyText MEMO, Status TEXT(10) NOT NULL, CreatedOn DATETIME, CreatedBy TEXT(100), " & _
+      "UpdatedOn DATETIME, UpdatedBy TEXT(100), LastUsedOn DATETIME)"
+    ExecDdl db, "CREATE TABLE tblTemplateFields (FieldID AUTOINCREMENT PRIMARY KEY, TemplateID LONG NOT NULL, FieldName TEXT(64) NOT NULL, " & _
+      "SortOrder INTEGER, IsRequired YESNO, MaxLen LONG, DefaultText TEXT(255), Hint TEXT(100))"
+    ExecDdl db, "CREATE TABLE tblWorkflows (WorkflowID AUTOINCREMENT PRIMARY KEY, WorkflowName TEXT(100) NOT NULL, Description TEXT(255), " & _
+      "IsActive YESNO, MatchTypes TEXT(255), MatchOriginators TEXT(255), UpdatedOn DATETIME, UpdatedBy TEXT(100))"
+    ExecDdl db, "CREATE TABLE tblWorkflowSteps (WfStepID AUTOINCREMENT PRIMARY KEY, WorkflowID LONG NOT NULL, StepOrder INTEGER NOT NULL, " & _
+      "StepTitle TEXT(100), StepAction TEXT(10) NOT NULL, PersonID LONG)"
+    ExecDdl db, "CREATE TABLE tblReleaseAuthorities (AuthorityID AUTOINCREMENT PRIMARY KEY, PersonID LONG NOT NULL, " & _
+      "Designation TEXT(100) NOT NULL, IsCommandingOfficer YESNO, Scope TEXT(30), CreatedOn DATETIME, CreatedBy TEXT(100))"
+    ExecDdl db, "CREATE TABLE tblCommandSettings (SettingsID LONG PRIMARY KEY, Originator TEXT(60), MsgIdOriginator TEXT(20), " & _
+      "TextCase TEXT(5), SeqPrefix TEXT(4), SeqDigits INTEGER, NextSequence LONG, UpdatedOn DATETIME, UpdatedBy TEXT(100))"
+End Sub
+
+Private Sub CreateDraftingIndexes(db As DAO.Database)
+    ExecDdl db, "CREATE INDEX ixDraftStatus ON tblDrafts (Status, UpdatedOn)"
+    ExecDdl db, "CREATE INDEX ixDraftDrafter ON tblDrafts (DrafterID)"
+    ExecDdl db, "CREATE INDEX ixParaDraft ON tblDraftParagraphs (DraftID, SortOrder)"
+    ExecDdl db, "CREATE INDEX ixRouteDraft ON tblDraftRoute (DraftID, RouteNo, StepOrder)"
+    ExecDdl db, "CREATE INDEX ixRoutePerson ON tblDraftRoute (PersonID, StepStatus)"
+    ExecDdl db, "CREATE INDEX ixEventDraft ON tblRoutingEvents (DraftID, EventAt)"
+    ExecDdl db, "CREATE UNIQUE INDEX uxTemplateVersion ON tblTemplates (TemplateName, VersionNo)"
+    ExecDdl db, "CREATE INDEX ixFieldTemplate ON tblTemplateFields (TemplateID, SortOrder)"
+    ExecDdl db, "CREATE UNIQUE INDEX uxWorkflowName ON tblWorkflows (WorkflowName)"
+    ExecDdl db, "CREATE INDEX ixStepWorkflow ON tblWorkflowSteps (WorkflowID, StepOrder)"
+    ExecDdl db, "CREATE INDEX ixAuthorityPerson ON tblReleaseAuthorities (PersonID)"
+End Sub
+
+' A draft's paragraphs and route go with it, a template's field rules and a
+' workflow's steps with theirs; the routing log never does (the app only
+' appends to it, and never deletes a draft).
+Private Sub CreateDraftingRelationships(db As DAO.Database)
+    AddRelation db, "rDP_D", "tblDrafts", "DraftID", "tblDraftParagraphs", "DraftID", True
+    AddRelation db, "rDR_D", "tblDrafts", "DraftID", "tblDraftRoute", "DraftID", True
+    AddRelation db, "rRE_D", "tblDrafts", "DraftID", "tblRoutingEvents", "DraftID"
+    AddRelation db, "rTF_T", "tblTemplates", "TemplateID", "tblTemplateFields", "TemplateID", True
+    AddRelation db, "rWS_W", "tblWorkflows", "WorkflowID", "tblWorkflowSteps", "WorkflowID", True
+End Sub
+
+' The command's transmission settings: the FM line, the MSGID originator,
+' every message in capitals, and local sequence #0042 next (the web app's).
+' The prefix and digits stay # and 4 (the naval format check requires them).
+Private Sub SeedDraftingLookups(db As DAO.Database)
+    ExecDdl db, "INSERT INTO tblCommandSettings (SettingsID, Originator, MsgIdOriginator, TextCase, SeqPrefix, SeqDigits, NextSequence, " & _
+      "UpdatedOn, UpdatedBy) VALUES (1, 'COMSUBLANT NORFOLK VA', 'COMSUBLANT', 'upper', '#', 4, 42, Now(), 'Data file build')"
+End Sub
+
+' Demo rows: the web app's four routing workflows (on, their steps held by
+' nobody yet: an administrator picks the people from Personnel under Admin:
+' Routing) and four fictional templates, active, version 1.
+Private Sub SeedDraftingDemo(db As DAO.Database)
+    AddWorkflow db, "General command traffic", "COMSUBLANT messages: N3 review, Chief of Staff review, Commander release.", _
+        "COMSUBLANT MSG", "", "N3 review|Chief of Staff review|Commander release"
+    AddWorkflow db, "Safety traffic", "Safety messages from the staff: N3 review, Chief of Staff release.", _
+        "SAFETY MSG", "COMSUBLANT NORFOLK VA", "N3 review|Chief of Staff release"
+    AddWorkflow db, "Logistics traffic", "Fleet messages: Supply review, N4 release.", "FLEET MSG", "", "Supply review|N4 release"
+    AddWorkflow db, "Default chain", "Any other traffic: Chief of Staff review, Commander release.", "", "", _
+        "Chief of Staff review|Commander release"
+
+    AddTemplate db, "General admin notice", "A general administrative notice to subordinate commands.", "GENADMIN", "ROUTINE", _
+        "{{ Action addressees }}", "", "{{ Subject }}", _
+        "{{ Purpose }}" & vbCrLf & vbCrLf & "{{ Details }}" & vbCrLf & vbCrLf & "POC IS {{ POC }}.", _
+        "Action addressees|Commands that act on it, separated by semicolons", _
+        "Subject|The SUBJ line, in a few words", "Purpose|What the message is for, in one or two sentences", _
+        "Details|What each addressee does, and by when", "POC|Rank, name, code and phone"
+    AddTemplate db, "Safety stand-down", "Directs a safety stand-down for one or more units.", "SAFETY MSG", "PRIORITY", _
+        "{{ Units }}", "COMSUBLANT NORFOLK VA", "SAFETY STAND-DOWN FOR {{ Units }}", _
+        "UNITS LISTED WILL CONDUCT A SAFETY STAND-DOWN NO LATER THAN {{ Complete by }}." & vbCrLf & vbCrLf & _
+        "THE STAND-DOWN COVERS {{ Topic }}." & vbCrLf & vbCrLf & "REPORT COMPLETION TO COMSUBLANT N3 BY MESSAGE. POC IS {{ POC }}.", _
+        "Units|The units that stand down", "Complete by|A date, such as 15 NOV 26", "Topic|What the stand-down covers", _
+        "POC|Rank, name, code and phone"
+    AddTemplate db, "Logistics status request", "Asks units for their supply and parts status.", "FLEET MSG", "ROUTINE", _
+        "{{ Units }}", "", "LOGISTICS STATUS REQUEST", _
+        "REQUEST UNITS LISTED REPORT {{ Items }} STATUS BY {{ Report by }}." & vbCrLf & vbCrLf & _
+        "INCLUDE CASREP NUMBERS WHERE THEY APPLY. POC IS {{ POC }}.", _
+        "Units|The units that report", "Items|What they report on, such as REPAIR PARTS", "Report by|A date-time group or date", _
+        "POC|Rank, name, code and phone"
+    AddTemplate db, "Watch bill change", "Tells the staff of a change to the command duty watch bill.", "COMSUBLANT MSG", "ROUTINE", _
+        "{{ Action addressees }}", "", "COMMAND DUTY WATCH BILL CHANGE", _
+        "EFFECTIVE {{ Effective }}, {{ Change }}." & vbCrLf & vbCrLf & "POC IS {{ POC }}.", _
+        "Action addressees|Commands or codes that act on it", "Effective|The date the change starts", _
+        "Change|Who stands which watch, in a sentence", "POC|Rank, name, code and phone"
+End Sub
+
+' A workflow, on, with the steps named in steps ("A|B|C"), the last one the
+' release step, nobody holding them.
+Private Sub AddWorkflow(db As DAO.Database, ByVal nm As String, ByVal desc As String, ByVal types As String, ByVal origs As String, _
+        ByVal steps As String)
+    Dim id As Long, p() As String, i As Long
+    ExecDdl db, "INSERT INTO tblWorkflows (WorkflowName, Description, IsActive, MatchTypes, MatchOriginators, UpdatedOn, UpdatedBy) VALUES ('" & _
+        nm & "','" & desc & "',True,'" & types & "','" & origs & "',Now(),'Data file build')"
+    id = db.OpenRecordset("SELECT @@IDENTITY")(0)
+    p = Split(steps, "|")
+    For i = 0 To UBound(p)
+        ExecDdl db, "INSERT INTO tblWorkflowSteps (WorkflowID, StepOrder, StepTitle, StepAction) VALUES (" & id & "," & (i + 1) & ",'" & _
+            p(i) & "','" & IIf(i = UBound(p), "release", "review") & "')"
+    Next
+End Sub
+
+' A template, active, version 1, UNCLASSIFIED, class A, with its fields in
+' order, each "Name|hint": required, no length limit.
+Private Sub AddTemplate(db As DAO.Database, ByVal nm As String, ByVal desc As String, ByVal msgType As String, ByVal prec As String, _
+        ByVal toLine As String, ByVal infoLine As String, ByVal subj As String, ByVal body As String, ParamArray fields() As Variant)
+    Dim id As Long, i As Long, p() As String
+    ExecDdl db, "INSERT INTO tblTemplates (TemplateName, VersionNo, Description, MsgType, MsgClass, Precedence, Classification, ToLine, " & _
+        "InfoLine, Subject, BodyText, Status, CreatedOn, CreatedBy, UpdatedOn, UpdatedBy) VALUES ('" & nm & "',1,'" & desc & "','" & _
+        msgType & "','A','" & prec & "','UNCLASSIFIED','" & toLine & "','" & infoLine & "','" & subj & "','" & body & _
+        "','Active',Now(),'Data file build',Now(),'Data file build')"
+    id = db.OpenRecordset("SELECT @@IDENTITY")(0)
+    For i = 0 To UBound(fields)
+        p = Split(fields(i), "|")
+        ExecDdl db, "INSERT INTO tblTemplateFields (TemplateID, FieldName, SortOrder, IsRequired, MaxLen, DefaultText, Hint) VALUES (" & _
+            id & ",'" & p(0) & "'," & (i + 1) & ",True,0,'','" & p(1) & "')"
+    Next
+End Sub
