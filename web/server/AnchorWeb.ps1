@@ -173,7 +173,7 @@ function Invoke-AuditSeal($conn, $tx) {
 function Add-Audit($conn, $tx, $me, [string]$action, [string]$resource, [string]$details, [string]$classif = 'UNCLASSIFIED', [string]$result = 'Success') {
     function Cut([string]$s, [int]$n) { if ($s.Length -gt $n) { return $s.Substring(0, $n) } return $s }
     $who = $null; if ($me.personId) { $who = [int]$me.personId }
-    [void](Invoke-NonQuery $conn ('INSERT INTO tblAudit (LoggedAt, PersonID, UserName, Action, Resource, Classification, Result, Device, Location, Details) ' +
+    [void](Invoke-NonQuery $conn ('INSERT INTO tblAudit ([LoggedAt], [PersonID], [UserName], [Action], [Resource], [Classification], [Result], [Device], [Location], [Details]) ' +
         'VALUES (Now(), ?, ?, ?, ?, ?, ?, ?, ?, ?)') @($who, (Cut $me.username 100), (Cut $action 40), (Cut $resource 150),
         (Cut $classif 20), (Cut $result 10), $Device, (Cut (Text $me.unit) 64), $details) $tx)
     [void](Invoke-AuditSeal $conn $tx)
@@ -360,7 +360,7 @@ function Invoke-Acknowledge($conn, $me, [int]$id) {
 }
 
 function Get-Audit($conn) {
-    $rows = Invoke-Query $conn ('SELECT TOP 200 AuditID, LoggedAt, UserName, Action, Resource, Classification, Result, Device, Location, Details, RowHash ' +
+    $rows = Invoke-Query $conn ('SELECT TOP 200 [AuditID], [LoggedAt], [UserName], [Action], [Resource], [Classification], [Result], [Device], [Location], [Details], [RowHash] ' +
         'FROM tblAudit ORDER BY AuditID DESC')
     return @{ rows = $rows; chain = (Test-AuditChain $conn) }
 }
@@ -449,6 +449,14 @@ function Handle($ctx) {
 }
 
 Import-Personnel
+# Seal any rows a new data file was seeded with, as the first Access front end
+# to open it does (modSignIn.AppStartUp), so the chain verifies from the start.
+$sealConn = Open-Db $DataFile
+try {
+    $sealTx = $sealConn.BeginTransaction()
+    try { $sealed = Invoke-AuditSeal $sealConn $sealTx; $sealTx.Commit() } catch { $sealTx.Rollback(); throw }
+    if ($sealed) { Write-Host "Sealed $sealed audit row(s) that were waiting." }
+} finally { $sealConn.Close() }
 $listener = New-Object System.Net.HttpListener
 $listener.AuthenticationSchemes = [System.Net.AuthenticationSchemes]::IntegratedWindowsAuthentication
 $listener.Prefixes.Add("http://localhost:$Port/")
