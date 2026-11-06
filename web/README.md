@@ -188,6 +188,47 @@ named in a comment, with the same transaction boundaries and audit rows; then
 the VBA is retired. The prototype's acknowledge and mark-read routes show the
 pattern.
 
+## Port or bridge? (spike, 2026-11-06)
+
+The alternative to porting: keep the VBA, and have the server call it in a
+hidden Access instance over COM (`kit/server/KitBridge.ps1`,
+`apps/anchor/bridge/`). Measured on review VM #1 with ANCHOR's real
+`modMessages.Acknowledge`, `MarkRead` and `modAudit.AuditVerify`:
+
+| | Full Access (automation) | Access `/runtime` |
+|---|---|---|
+| Hidden Access start | 0.9 s | 3.4 s |
+| Memory | 138 to 145 MB | 94 to 101 MB |
+| Acknowledge inside Access | 37 ms | similar |
+| Untrapped VBA error | error box caught, Access restarted in under 1 s | came back as a COM error in 2 ms |
+| Stray MsgBox | caught, restarted | caught, restarted |
+| Hang | stopped at the 8 s timeout, restarted | same, restart 3.5 s |
+| Audit Verify afterwards | passes | passes |
+
+It works, and the VBA runs unchanged behind a small wrapper per entry point.
+What it costs:
+
+- **Every PC needs Access or the Access Runtime**, matched to Office's
+  bitness. The free Runtime would not install beside Click-to-Run Office on
+  the VM, so a PC with Office relies on its full Access.
+- **Each PC needs a Trusted Location** for the logic file, and the logic file
+  is rebuilt whenever the VBA changes.
+- **A dialog nobody catches stops that PC's server until the timeout.** Every
+  routine called must be checked for `MsgBox`, forms and prompts, because it
+  was written for a person sitting at Access. Full and runtime Access behave
+  differently here (above).
+- **A hidden process to look after**: killed servers leave it running (now
+  cleaned up at the next start and by `-Stop`), and its memory is on top of
+  the server's.
+- **VBA stays the logic language indefinitely**, which is the opposite of
+  "no Access apps".
+
+**Recommendation: port.** Make the PowerShell module the home of each app's
+rules, routine by routine, as the acknowledge route does. Use the bridge only
+as a stopgap, behind the same API so pages don't change, for a large routine
+that is already free of UI and isn't worth porting yet (for example ANCHOR's
+naval message formatting), and retire it as those routines are ported.
+
 ## What moves into the kit repo
 
 - `web/kit/` as a whole, versioned (`KIT_WEB_VERSION.txt`) and copied into the
