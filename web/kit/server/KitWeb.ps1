@@ -341,7 +341,7 @@ function Invoke-KitRequest($ctx) {
             # briefly holds the file (error 3734), the open itself fails.
             $conn = Open-KitDb $app.DataFile
             $appProfile = Get-KitAppProfile $app $conn $person.personId
-            if ($null -eq $appProfile) { Send-KitJson $ctx 403 @{ error = "You have no $($app.Name) profile. Ask a $($app.Name) admin to add you." }; return }
+            if ($null -eq $appProfile) { Send-KitJson $ctx 403 @{ error = "You have no $($app.Name) profile. Ask that app's administrator to add you." }; return }
             $me = @{ personId = $person.personId; account = $person.account; username = $person.username; profile = $appProfile }
             foreach ($route in $app.Routes) {
                 if ($route.Method -ne $req.HttpMethod) { continue }
