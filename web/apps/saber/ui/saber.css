@@ -1,0 +1,65 @@
+/* SABER's own page styles. Colors only from the kit palette variables. */
+.sb-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.sb-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: var(--clr-surface); color: var(--clr-fg);
+  border: 1px solid var(--clr-border); border-left: 4px solid var(--clr-input-border); border-radius: var(--kit-radius); padding: 12px 14px; }
+.sb-card:hover { border-color: var(--clr-primary); }
+.sb-card.active { border-color: var(--clr-primary); border-left-color: var(--clr-primary); background: var(--clr-primary-soft); }
+.sb-card-value { font-size: 24px; font-weight: 600; }
+.sb-card-label { color: var(--clr-muted-fg); font-size: 13px; }
+
+.sb-list .sb-name { color: var(--clr-fg); font-weight: 600; text-decoration: none; }
+.sb-list .sb-name:hover { text-decoration: underline; }
+.sb-boat { margin-left: 8px; font-size: 12px; }
+.sb-progress { display: inline-flex; align-items: center; gap: 8px; }
+.sb-bar { width: 90px; height: 6px; border-radius: 3px; background: var(--clr-inset); border: 1px solid var(--clr-border); overflow: hidden; }
+.sb-bar > span { display: block; height: 100%; background: var(--clr-primary); }
+.sb-pct { font-size: 13px; min-width: 36px; }
+.kit-stat-value .sb-progress { font-size: 14px; }
+.kit-stat-value .sb-bar { width: 120px; height: 8px; }
+.sb-role { font-size: 18px; }
+
+.sb-head { display: flex; flex-direction: column; gap: 6px; }
+.sb-head .kit-link { align-self: flex-start; }
+.sb-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sb-meta { font-size: 13px; }
+
+.sb-split { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+.sb-split.has-panel { grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr); }
+.sb-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sb-tree { display: flex; flex-direction: column; margin: 0 -16px -16px; }
+.sb-row { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; background: none; border: none; border-top: 1px solid var(--clr-border); color: var(--clr-fg); padding: 9px 16px; }
+.sb-row:hover { background: var(--clr-row1); }
+.sb-l1 { font-weight: 700; background: var(--clr-inset); }
+.sb-l2 { font-weight: 600; padding-left: 34px; }
+.sb-l3 { padding-left: 52px; }
+.sb-caret { width: 14px; color: var(--clr-muted-fg); flex: none; }
+.sb-row-title { flex: 1; min-width: 0; }
+.sb-code { font-weight: 600; color: var(--clr-attr-fg); margin-right: 8px; }
+.sb-count { font-size: 12px; color: var(--clr-muted-fg); font-variant-numeric: tabular-nums; }
+.sb-count.done { color: var(--clr-success-fg); font-weight: 600; }
+
+.sb-attr { display: grid; grid-template-columns: 28px minmax(0, 1fr) 170px auto 32px; align-items: center; gap: 10px; padding: 8px 16px 8px 74px; border-top: 1px solid var(--clr-border); }
+.sb-attr:hover { background: var(--clr-row1); }
+.sb-attr.selected { background: var(--clr-primary-soft); box-shadow: inset 3px 0 0 var(--clr-primary); }
+.sb-num { color: var(--clr-muted-fg); text-align: right; }
+.sb-crit { overflow-wrap: anywhere; }
+.sb-crit-sub { font-size: 12px; margin-top: 2px; }
+.sb-grade { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.sb-prelim { font-size: 11px; color: var(--clr-warn-text); border: 1px dashed var(--clr-warn-text); border-radius: 999px; padding: 0 6px; }
+.sb-entry { display: flex; gap: 6px; align-items: center; }
+.sb-score { width: 64px; padding: 5px 8px; border: 1px solid var(--clr-input-border); border-radius: 6px; text-align: right; }
+.sb-score[aria-invalid='true'] { border-color: var(--clr-danger-text); }
+.sb-band { padding: 5px 6px; border: 1px solid var(--clr-input-border); border-radius: 6px; max-width: 150px; }
+
+.sb-panel { position: sticky; top: 16px; }
+.sb-panel-attr { margin: 0 0 12px; font-weight: 600; }
+.sb-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.sb-history li { border-left: 3px solid var(--clr-border); padding-left: 10px; }
+
+@media (max-width: 1000px) {
+  .sb-split.has-panel { grid-template-columns: 1fr; }
+  .sb-attr { grid-template-columns: 24px minmax(0, 1fr) 32px; padding-left: 24px; }
+  .sb-grade, .sb-entry { grid-column: 2; }
+  .sb-l2 { padding-left: 24px; }
+  .sb-l3 { padding-left: 32px; }
+}

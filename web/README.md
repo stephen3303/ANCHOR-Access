@@ -30,9 +30,12 @@ web/
     anchor/ui/               ANCHOR pages (Home, Messages, Audit)
     examgen/api.ps1          Exam Generator: profile rule (roles), Overview route
     examgen/ui/              Exam Generator Overview page
+    saber/api.ps1            SABER: team_member profile, Personnel sync, Inspections, grading + grade_history
+    saber/ui/                SABER pages (Inspections, Inspection > Grading); PORT-PLAN.md
   ui/                        Vite project: src/main.tsx lists the app modules
   dist/index.html            the built UI (committed)
   test/test-web.ps1          end-to-end check on real data files
+  test/test-saber.ps1        end-to-end check of the SABER module on a scratch SABER_be.accdb
   web.config.example.json    which apps, which data files
   Start-Web.cmd              double-click launcher
 ```
@@ -124,6 +127,8 @@ npm run build    # writes web/dist/index.html; commit it
 | ANCHOR | Messages | search and filters; message view with sections, attachments, receipts, integrity | mark read (first open audited), Acknowledge |
 | ANCHOR | Audit | last 200 entries, full chain verify | none |
 | Exam Generator | Overview | questions and exams by status, topics, templates, lookups | none |
+| SABER | Inspections | status cards, search, year, grading completion | none |
+| SABER | Inspection > Grading | schema tree, grades, per-attribute history | grade (score, band, Not Evaluated), clear; each with its grade_history row |
 
 API: `GET /api/me` (you, your apps, token), `/api/people` (demo only), and per
 app under `/api/<key>/`: ANCHOR `summary`, `messages`, `messages/{id}`,

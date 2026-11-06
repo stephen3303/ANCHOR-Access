@@ -5,6 +5,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { saberMock } from './mock-saber.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const seed = path.join(here, '../../access/backend/seed');
@@ -45,7 +46,14 @@ http.createServer((req, res) => {
   if (u.pathname === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(fs.readFileSync(path.join(here, '../dist/index.html'))); }
   if (u.pathname === '/api/me') return send(res, 200, { me: { personId: 1, account: me.account, username: me.username }, csrf: 'mock', demoSignIn: false, title: 'Navy Apps', server: 'MOCK',
     apps: [{ key: 'anchor', name: 'ANCHOR', available: true, error: '', profile: { billet: me.billet, unit: me.unit, isAdmin: true } },
-           { key: 'examgen', name: 'Exam Generator', available: true, error: '', profile: { billet: 'SME, Approver', roles: ['SME', 'Approver'], isAdmin: false } }] });
+           { key: 'examgen', name: 'Exam Generator', available: true, error: '', profile: { billet: 'SME, Approver', roles: ['SME', 'Approver'], isAdmin: false } },
+           { key: 'saber', name: 'SABER', available: true, error: '', profile: { billet: 'SABER admin', unit: 'TYCOM', isAdmin: true, memberId: 1 } }] });
+  if (u.pathname.startsWith('/api/saber/')) {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => saberMock(req, res, u, send, raw ? JSON.parse(raw) : {}));
+    return;
+  }
   if (u.pathname === '/api/examgen/overview') return send(res, 200, {
     questionsByStatus: [{ status: 'Draft', n: 4 }, { status: 'In review', n: 3 }, { status: 'Approved', n: 41 }, { status: 'Retired', n: 2 }],
     examsByStatus: [{ status: 'Draft', n: 1 }, { status: 'Topic review', n: 2 }, { status: 'Approved', n: 6 }],
