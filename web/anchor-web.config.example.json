@@ -1,7 +1,0 @@
-{
-  "app": "ANCHOR",
-  "server": "server\\AnchorWeb.ps1",
-  "dataFile": "S:\\Apps\\ANCHOR\\ANCHOR_BE.accdb",
-  "personnel": "S:\\Apps\\Personnel\\Personnel_be.accdb",
-  "port": 8787
-}

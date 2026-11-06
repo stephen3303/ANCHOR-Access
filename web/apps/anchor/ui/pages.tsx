@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Card, ClassificationBanner, dueText, Empty, errText, fmtDate, go, PageHead, Pill, Stat, useNarrow, useToast, type Tone } from '@kit';
+import { Card, ClassificationBanner, dueText, Empty, errText, fmtDate, go as goHash, PageHead, Pill, Stat, useNarrow, useToast, type Tone } from '@kit';
 import { api, type AuditResponse, type ListMessage, type MessageDetail, type Summary } from './api';
+
+// Paths inside ANCHOR: go('/messages/12') opens #/anchor/messages/12.
+const go = (path: string) => goHash(`#/anchor${path}`);
 
 // ---------------------------------------------------------------- ANCHOR pills
 
@@ -58,7 +61,7 @@ export function HomePage() {
               return (
                 <li key={m.id}>
                   <Precedence value={m.precedence} />
-                  <button className="kit-link an-ack-subject" onClick={() => go(`#/messages/${m.id}`)}>
+                  <button className="kit-link an-ack-subject" onClick={() => go(`/messages/${m.id}`)}>
                     <span className="an-ref">{m.reference}</span> {m.subject}
                   </button>
                   <span className={due.overdue ? 'an-due an-overdue' : 'an-due'}>{due.text}</span>
@@ -71,8 +74,8 @@ export function HomePage() {
           </ul>
         )}
       </Card>
-      <Card title="Latest traffic" action={<button className="kit-link" onClick={() => go('#/messages')}>All messages</button>}>
-        <MessageTable rows={s.latest} onOpen={(id) => go(`#/messages/${id}`)} />
+      <Card title="Latest traffic" action={<button className="kit-link" onClick={() => go('/messages')}>All messages</button>}>
+        <MessageTable rows={s.latest} onOpen={(id) => go(`/messages/${id}`)} />
       </Card>
     </div>
   );
@@ -183,9 +186,9 @@ export function MessagesPage({ id }: { id?: number }) {
       </div>
       <div className={`an-split ${id ? 'has-preview' : ''}`}>
         <Card>
-          {err ? <Empty>{err}</Empty> : rows ? <MessageTable rows={rows} selected={id} compact={!!id || narrow} onOpen={(m) => go(`#/messages/${m}`)} /> : <Empty>Loading...</Empty>}
+          {err ? <Empty>{err}</Empty> : rows ? <MessageTable rows={rows} selected={id} compact={!!id || narrow} onOpen={(m) => go(`/messages/${m}`)} /> : <Empty>Loading...</Empty>}
         </Card>
-        {id ? <MessageView key={id} id={id} onChanged={load} onClose={() => go('#/messages')} /> : null}
+        {id ? <MessageView key={id} id={id} onChanged={load} onClose={() => go('/messages')} /> : null}
       </div>
     </div>
   );

@@ -1,73 +1,92 @@
 <#
-Kit web server core: a small JSON server over an Access data file, shared by
-every app. It holds nothing app-specific. An app supplies its routes and
-two hooks in its own module (see ..\..\app\server\ in an app) and starts it:
+Kit web server core: one small JSON server for every kit app, each app with
+its own Access data file. Nothing here is specific to one app.
 
-    . (Join-Path $kit 'server\KitWeb.ps1')
-    Initialize-KitWeb -AppName 'ANCHOR' -DataFile $DataFile -Personnel $Personnel -Port $Port -DemoSignIn:$DemoSignIn
-    Set-KitProfileResolver { param($conn, [int]$personId) ... return @{ billet = ...; unit = ...; isAdmin = ... } or $null }
-    Set-KitPeopleLister   { param($conn) ... rows with PersonID, Name, Billet, Unit }    # for -DemoSignIn
-    Add-KitRoute GET '^/api/things$' { param($r) $r.Json(200, @{ things = (Invoke-KitQuery $r.Conn 'SELECT ...') }) }
-    Start-KitWeb -OnStart { param($conn) ... }
+The host (KitHost.ps1) reads a settings file that lists the apps. For each it
+calls Use-KitApp, then dot-sources the app's module, which adds that app's
+routes and hooks:
 
-What the core does for every app:
-  - Serves the app's one-file UI (dist\index.html) and its /api/ routes.
-  - Windows sign-in (Negotiate/NTLM, built into Windows): the caller's
-    Windows account is looked up in the shared Personnel directory
-    (kit_person.windows_account) for the person_id the app's tables use, then
-    the app's profile resolver says whether they may use this app.
-  - Opens the data file with the Access engine (ACE OLE DB) for each request,
-    shared, and closes it, so Access front ends and other copies of this
-    server work on the same file at the same time.
-  - Parameterized SQL helpers (Invoke-KitQuery, Invoke-KitNonQuery,
-    Use-KitTransaction). Values always go as parameters.
-  - Security: localhost only unless -Lan; only its own Host names; a per-run
-    token on every write (CSRF); strict Content-Security-Policy; no-store.
-  - A write that hits an Access record lock is retried a few times (each
-    route runs its writes in a transaction that rolls back on error).
+    Set-KitProfileResolver { param($conn, [int]$personId) ... return @{ ... } or $null }
+    Set-KitPeopleLister   { param($conn) ... rows with PersonID, Name, Billet, Unit }    # demo sign-in only
+    Add-KitRoute GET '^/things$' { param($r) $r.Json(200, @{ things = (Invoke-KitQuery $r.Conn 'SELECT ...') }) }
+    Set-KitOnStart        { param($conn) ... }                                          # once, at start
+
+An app's routes are served under /api/<app key>/ (the pattern above answers
+/api/<key>/things), and $r.Conn is a connection to THAT app's data file only.
+
+Who may do what:
+  - Sign-in is Windows (Negotiate/NTLM, built into Windows). The caller's
+    Windows account is looked up once in the shared Personnel directory
+    (kit_person.windows_account) for their person_id: one identity for all apps.
+  - Each app decides on its own whether that person may use it: its profile
+    resolver reads the app's own people table, in the app's own data file. No
+    profile: the app isn't listed for them and its routes answer 403.
+  - Whatever an app records (audit trails, receipts) goes into its own data
+    file through its own routes, so apps' records never mix.
+
+Also: the Access engine (ACE OLE DB) opened shared for each request and closed
+after, so Access front ends and other copies of this server work on the same
+files at once; parameterized SQL helpers and transactions; a retry when a
+write meets another user's record lock; localhost only unless -Lan; only its
+own Host names; a per-run token on every write (CSRF); a strict CSP.
 
 Needs Windows PowerShell 5.1 and the Access engine of the same bitness.
 #>
 Add-Type -AssemblyName System.Data
 
 $script:Kit = @{
-    AppName = 'App'; DataFile = ''; Personnel = ''; Port = 8787; Lan = $false; DemoSignIn = $false
-    UiFile = ''; Provider = ''; Csrf = [guid]::NewGuid().ToString('N'); Routes = New-Object System.Collections.Generic.List[object]
-    ResolveProfile = $null; ListPeople = $null; Names = @{}; Accounts = @{}; Device = ''
+    Title = 'Apps'; Personnel = ''; Port = 8787; Lan = $false; DemoSignIn = $false; UiFile = ''; Provider = ''
+    Csrf = [guid]::NewGuid().ToString('N'); Apps = [ordered]@{}; Current = $null; Names = @{}; Accounts = @{}; Device = ''
 }
 $KIT_DEFAULT_PERSONNEL_KEY = 'kit-personnel-1'   # modPersonnel.DEFAULT_KEY
 
 function Initialize-KitWeb {
-    param([string]$AppName, [string]$DataFile, [string]$Personnel = '', [int]$Port = 8787, [switch]$Lan,
-          [switch]$DemoSignIn, [Parameter(Mandatory = $true)][string]$UiFile, [string]$LogFile = '')
+    param([string]$Title = 'Apps', [string]$Personnel = '', [int]$Port = 8787, [switch]$Lan, [switch]$DemoSignIn,
+          [Parameter(Mandatory = $true)][string]$UiFile, [string]$LogFile = '')
     # The launcher runs the server hidden and asks for a log file.
     if ($LogFile) { Start-Transcript -Path $LogFile -Append | Out-Null }
-    $resolve = { param($p) $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($p) }
-    $DataFile = & $resolve $DataFile
-    if (-not (Test-Path $DataFile)) { throw "No data file at $DataFile" }
     if ($Personnel) {
-        $Personnel = & $resolve $Personnel
+        $Personnel = Resolve-KitPath $Personnel
         if (-not (Test-Path $Personnel)) { throw "No Personnel file at $Personnel" }
     }
-    if (-not $Personnel -and -not $DemoSignIn) { throw 'Give -Personnel <Personnel_be.accdb> (Windows sign-in) or -DemoSignIn (review only).' }
-    $Kit.AppName = $AppName; $Kit.DataFile = $DataFile; $Kit.Personnel = $Personnel; $Kit.Port = $Port
-    $Kit.Lan = [bool]$Lan; $Kit.DemoSignIn = [bool]$DemoSignIn; $Kit.UiFile = & $resolve $UiFile
+    if (-not $Personnel -and -not $DemoSignIn) { throw 'Give a Personnel file (Windows sign-in) or -DemoSignIn (review only).' }
+    $Kit.Title = $Title; $Kit.Personnel = $Personnel; $Kit.Port = $Port; $Kit.Lan = [bool]$Lan
+    $Kit.DemoSignIn = [bool]$DemoSignIn; $Kit.UiFile = Resolve-KitPath $UiFile
     $d = $env:COMPUTERNAME + ' (web)'; if ($d.Length -gt 64) { $d = $d.Substring(0, 64) }
     $Kit.Device = $d
-    $Kit.Provider = Find-KitAceProvider $DataFile
 }
+
+function Resolve-KitPath([string]$p) { return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($p) }
+
+# Start registering an app. The routes and hooks that follow belong to it.
+# A data file that can't be reached doesn't stop the server: the app is listed
+# as unavailable, with why, and the other apps carry on.
+function Use-KitApp([string]$Key, [string]$Name, [string]$DataFile) {
+    if ($Key -notmatch '^[a-z][a-z0-9-]{0,30}$') { throw "App key '$Key': use lower-case letters, digits and dashes." }
+    if ($Kit.Apps.Contains($Key)) { throw "App key '$Key' is listed twice." }
+    $app = @{ Key = $Key; Name = $Name; DataFile = (Resolve-KitPath $DataFile); Routes = New-Object System.Collections.Generic.List[object]
+              ResolveProfile = $null; ListPeople = $null; OnStart = $null; Error = '' }
+    if (-not (Test-Path $app.DataFile)) { $app.Error = "Can't reach its data file ($($app.DataFile))." }
+    elseif (-not $Kit.Provider) {
+        try { $Kit.Provider = Find-KitAceProvider $app.DataFile } catch { throw }
+    }
+    $Kit.Apps[$Key] = $app
+    $Kit.Current = $app
+}
+
+function Set-KitProfileResolver([scriptblock]$Block) { $Kit.Current.ResolveProfile = $Block }
+function Set-KitPeopleLister([scriptblock]$Block) { $Kit.Current.ListPeople = $Block }
+function Set-KitOnStart([scriptblock]$Block) { $Kit.Current.OnStart = $Block }
 
 # The computer name with " (web)", for audit columns that record the device.
 function Get-KitDevice { return $Kit.Device }
 
-function Set-KitProfileResolver([scriptblock]$Block) { $Kit.ResolveProfile = $Block }
-function Set-KitPeopleLister([scriptblock]$Block) { $Kit.ListPeople = $Block }
-
-# Add a route. Pattern is a regex over "<path>"; method GET, POST, PUT or DELETE.
-# The handler gets one argument $r with: Conn, Me, Query (hashtable), Matches,
-# Body (parsed JSON or $null), Ctx, and $r.Json(status, object).
+# Add a route to the current app. Pattern is a regex over the path after
+# /api/<key>. The handler gets $r with: Conn (this app's data file), Me (with
+# Me.profile, this app's profile), App, Query (hashtable), Matches, Body
+# (parsed JSON or $null), Ctx, and $r.Json(status, object).
 function Add-KitRoute([string]$Method, [string]$Pattern, [scriptblock]$Handler) {
-    $Kit.Routes.Add(@{ Method = $Method.ToUpper(); Pattern = $Pattern; Handler = $Handler })
+    $Kit.Current.Routes.Add(@{ Method = $Method.ToUpper(); Pattern = $Pattern; Handler = $Handler })
 }
 
 # ---------------------------------------------------------------- database
@@ -81,8 +100,7 @@ function Find-KitAceProvider([string]$dataFile) {
     throw "This $bits PowerShell can't load the Access engine (ACE OLE DB). Run the PowerShell whose bitness matches Office, or install the Microsoft Access Database Engine redistributable of this bitness."
 }
 
-function Open-KitDb([string]$path = '', [string]$password = '') {
-    if (-not $path) { $path = $Kit.DataFile }
+function Open-KitDb([string]$path, [string]$password = '') {
     $cs = "Provider=$($Kit.Provider);Data Source=$path;Mode=Share Deny None"
     if ($password) { $cs += ";Jet OLEDB:Database Password=$password" }
     $c = New-Object System.Data.OleDb.OleDbConnection($cs)
@@ -145,6 +163,10 @@ function Get-KitSha256Hex([string]$s) {
     finally { $sha.Dispose() }
 }
 
+# Text of a value ('' for null), and text cut to a column's width.
+function ConvertTo-KitText($v) { if ($null -eq $v) { return '' } return [string]$v }
+function Limit-KitText([string]$s, [int]$n) { if ($s.Length -gt $n) { return $s.Substring(0, $n) } return $s }
+
 # ---------------------------------------------------------------- people
 
 function Get-KitPersonnelKey {
@@ -178,8 +200,8 @@ function Get-KitPersonName([int]$personId) {
     return "Person $personId"
 }
 
-# Who is calling. personId 0: they can't use this app.
-function Resolve-KitMe($ctx, $conn) {
+# Who is calling, from Windows (or the demo header). personId 0: unknown.
+function Resolve-KitPerson($ctx) {
     $account = $ctx.User.Identity.Name
     $personId = 0
     if ($Kit.DemoSignIn) {
@@ -190,13 +212,50 @@ function Resolve-KitMe($ctx, $conn) {
         if (-not $Kit.Accounts.ContainsKey($key)) { Import-KitPersonnel }
         if ($Kit.Accounts.ContainsKey($key)) { $personId = $Kit.Accounts[$key] }
     }
-    $none = @{ personId = 0; account = $account }
-    if ($personId -eq 0) { return $none }
-    $appProfile = & $Kit.ResolveProfile $conn $personId
-    if ($null -eq $appProfile) { return $none }
-    $me = @{ personId = $personId; account = $account; username = (Get-KitPersonName $personId) }
-    foreach ($k in $appProfile.Keys) { $me[$k] = $appProfile[$k] }
-    return $me
+    $name = ''; if ($personId) { $name = Get-KitPersonName $personId }
+    return @{ personId = $personId; account = $account; username = $name }
+}
+
+# This app's profile for the person, or $null (no access to this app).
+function Get-KitAppProfile($app, $conn, [int]$personId) {
+    if ($personId -eq 0) { return $null }
+    return (& $app.ResolveProfile $conn $personId)
+}
+
+# Every app, with the caller's profile in each (for /api/me and the switcher).
+function Get-KitAppList([int]$personId) {
+    $list = New-Object System.Collections.Generic.List[object]
+    foreach ($app in $Kit.Apps.Values) {
+        $entry = [ordered]@{ key = $app.Key; name = $app.Name; available = (-not $app.Error); error = $app.Error; profile = $null }
+        if (-not $app.Error -and $personId) {
+            try {
+                $c = Open-KitDb $app.DataFile
+                try { $entry.profile = Get-KitAppProfile $app $c $personId } finally { $c.Close() }
+            } catch { $entry.available = $false; $entry.error = "Its data file can't be opened right now." ; Write-Warning "$($app.Key): $($_.Exception.Message)" }
+        }
+        $list.Add($entry)
+    }
+    return , $list
+}
+
+# Demo sign-in: everyone with a profile in any app, once each.
+function Get-KitDemoPeople {
+    $seen = @{}
+    $list = New-Object System.Collections.Generic.List[object]
+    foreach ($app in $Kit.Apps.Values) {
+        if ($app.Error -or -not $app.ListPeople) { continue }
+        $c = Open-KitDb $app.DataFile
+        try {
+            foreach ($p in (& $app.ListPeople $c)) {
+                $id = [int]$p.PersonID
+                if ($seen.ContainsKey($id)) { $seen[$id].Apps += ", $($app.Name)"; continue }
+                $row = [ordered]@{ PersonID = $id; Name = (Get-KitPersonName $id); Billet = $p.Billet; Unit = $p.Unit; Apps = $app.Name }
+                $seen[$id] = $row
+                $list.Add($row)
+            }
+        } finally { $c.Close() }
+    }
+    return , $list
 }
 
 # ---------------------------------------------------------------- HTTP
@@ -220,8 +279,14 @@ function Send-Kit($ctx, [int]$status, [string]$body, [string]$type = 'applicatio
 function Send-KitJson($ctx, [int]$status, $obj) { Send-Kit $ctx $status (ConvertTo-Json -InputObject $obj -Depth 8 -Compress) }
 
 function Test-KitLocked($err) {
-    $m = $err.Exception.ToString()
-    return ($m -match 'currently locked|could not lock|Could not update|already in use|locked by user')
+    return ($err.Exception.ToString() -match 'currently locked|could not lock|Could not update|already in use|locked by user')
+}
+
+# Another PC inserted the same key between this request's check and its
+# insert (two servers on one file). The transaction rolled back, so running
+# the request again re-reads and finds the other PC's row.
+function Test-KitDuplicateKey($err) {
+    return ($err.Exception.ToString() -match 'duplicate values in the index, primary key')
 }
 
 function Invoke-KitRequest($ctx) {
@@ -243,31 +308,43 @@ function Invoke-KitRequest($ctx) {
     if ($req.HttpMethod -ne 'GET' -and $req.Headers['X-Kit-Csrf'] -ne $Kit.Csrf) {
         Send-KitJson $ctx 403 @{ error = 'Missing or wrong request token. Reload the page.' }; return
     }
+
+    $person = Resolve-KitPerson $ctx
+    if ($path -eq '/api/me') {
+        Send-KitJson $ctx 200 @{ me = $person; apps = (Get-KitAppList $person.personId); csrf = $Kit.Csrf; demoSignIn = $Kit.DemoSignIn
+                                 title = $Kit.Title; server = $env:COMPUTERNAME }
+        return
+    }
+    if ($Kit.DemoSignIn -and $path -eq '/api/people') { Send-KitJson $ctx 200 @{ people = (Get-KitDemoPeople) }; return }
+
+    # /api/<app key>/<rest>
+    $m = [regex]::Match($path, '^/api/([a-z][a-z0-9-]{0,30})(/.*)$')
+    if (-not $m.Success -or -not $Kit.Apps.Contains($m.Groups[1].Value)) { Send-KitJson $ctx 404 @{ error = 'Not found.' }; return }
+    $app = $Kit.Apps[$m.Groups[1].Value]
+    $rest = $m.Groups[2].Value
+    if ($app.Error) { Send-KitJson $ctx 503 @{ error = "$($app.Name) is unavailable: $($app.Error)" }; return }
+    if ($person.personId -eq 0) { Send-KitJson $ctx 403 @{ error = "Your Windows account ($($person.account)) isn't in the Personnel directory." }; return }
+
     $body = $null
     if ($req.HasEntityBody) {
         $txt = (New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)).ReadToEnd()
         if ($txt.Length -gt 1MB) { Send-KitJson $ctx 413 @{ error = 'Too large.' }; return }
         if ($txt) { try { $body = $txt | ConvertFrom-Json } catch { Send-KitJson $ctx 400 @{ error = 'The request is not valid JSON.' }; return } }
     }
+    $query = @{}
+    foreach ($k in $req.QueryString.AllKeys) { if ($k) { $query[$k] = $req.QueryString[$k] } }
 
     for ($attempt = 1; ; $attempt++) {
-        $conn = Open-KitDb
+        $conn = Open-KitDb $app.DataFile
         try {
-            if ($Kit.DemoSignIn -and $path -eq '/api/people') { Send-KitJson $ctx 200 @{ people = (& $Kit.ListPeople $conn) }; return }
-            $me = Resolve-KitMe $ctx $conn
-            if ($path -eq '/api/me') {
-                Send-KitJson $ctx 200 @{ me = $me; csrf = $Kit.Csrf; demoSignIn = $Kit.DemoSignIn; app = $Kit.AppName
-                                         server = $env:COMPUTERNAME; dataFile = (Split-Path -Leaf $Kit.DataFile) }
-                return
-            }
-            if ($me.personId -eq 0) { Send-KitJson $ctx 403 @{ error = "Your Windows account ($($me.account)) has no active $($Kit.AppName) profile." }; return }
-            $query = @{}
-            foreach ($k in $req.QueryString.AllKeys) { if ($k) { $query[$k] = $req.QueryString[$k] } }
-            foreach ($route in $Kit.Routes) {
+            $appProfile = Get-KitAppProfile $app $conn $person.personId
+            if ($null -eq $appProfile) { Send-KitJson $ctx 403 @{ error = "You have no $($app.Name) profile. Ask a $($app.Name) admin to add you." }; return }
+            $me = @{ personId = $person.personId; account = $person.account; username = $person.username; profile = $appProfile }
+            foreach ($route in $app.Routes) {
                 if ($route.Method -ne $req.HttpMethod) { continue }
-                $m = [regex]::Match($path, $route.Pattern)
-                if (-not $m.Success) { continue }
-                $r = [pscustomobject]@{ Conn = $conn; Me = $me; Query = $query; Matches = $m; Body = $body; Ctx = $ctx }
+                $rm = [regex]::Match($rest, $route.Pattern)
+                if (-not $rm.Success) { continue }
+                $r = [pscustomobject]@{ Conn = $conn; Me = $me; App = $app; Query = $query; Matches = $rm; Body = $body; Ctx = $ctx }
                 $r | Add-Member -MemberType ScriptMethod -Name Json -Value { param([int]$s, $o) Send-KitJson $this.Ctx $s $o }
                 [void](& $route.Handler $r)
                 return
@@ -275,22 +352,29 @@ function Invoke-KitRequest($ctx) {
             Send-KitJson $ctx 404 @{ error = 'Not found.' }
             return
         } catch {
-            # Another user (Access or web) holds the record: wait and try again.
-            if ($attempt -lt 4 -and (Test-KitLocked $_)) { Start-Sleep -Milliseconds (150 * $attempt); continue }
+            # Another PC holds the record, or just inserted the same key: wait and
+            # run the request again (its transaction rolled back). A route must
+            # answer with $r.Json only after its last write, so a retry never
+            # answers twice.
+            if ($attempt -lt 4 -and ((Test-KitLocked $_) -or (Test-KitDuplicateKey $_))) { Start-Sleep -Milliseconds (150 * $attempt); continue }
             throw
         } finally { $conn.Close() }
     }
 }
 
-# Listen until Ctrl+C. OnStart runs once with an open connection first.
-function Start-KitWeb([scriptblock]$OnStart = $null) {
-    if (-not $Kit.ResolveProfile) { throw 'The app must call Set-KitProfileResolver.' }
-    if ($Kit.DemoSignIn -and -not $Kit.ListPeople) { throw 'The app must call Set-KitPeopleLister for -DemoSignIn.' }
+# Listen until Ctrl+C. Each available app's OnStart runs once first.
+function Start-KitWeb {
+    if ($Kit.Apps.Count -eq 0) { throw 'No apps are listed.' }
+    if (-not $Kit.Provider) { throw 'None of the apps'' data files can be reached, so the Access engine could not be checked.' }
+    foreach ($app in $Kit.Apps.Values) {
+        if (-not $app.ResolveProfile) { throw "App '$($app.Key)' must call Set-KitProfileResolver." }
+        if ($app.Error) { Write-Warning "$($app.Name): $($app.Error)"; continue }
+        if ($app.OnStart) { $c = Open-KitDb $app.DataFile; try { & $app.OnStart $c } finally { $c.Close() } }
+    }
     $port = $Kit.Port
     $Kit.AllowedHosts = @("localhost:$port", "127.0.0.1:$port")
     if ($Kit.Lan) { $Kit.AllowedHosts += @("$($env:COMPUTERNAME):$port".ToLower(), "$([System.Net.Dns]::GetHostEntry('').HostName):$port".ToLower()) }
     Import-KitPersonnel
-    if ($OnStart) { $c = Open-KitDb; try { & $OnStart $c } finally { $c.Close() } }
 
     $listener = New-Object System.Net.HttpListener
     $listener.AuthenticationSchemes = [System.Net.AuthenticationSchemes]::IntegratedWindowsAuthentication
@@ -298,8 +382,9 @@ function Start-KitWeb([scriptblock]$OnStart = $null) {
     $listener.Prefixes.Add("http://127.0.0.1:$port/")
     if ($Kit.Lan) { $listener.Prefixes.Add("http://+:$port/") }
     $listener.Start()
-    Write-Host "$($Kit.AppName) web: http://localhost:$port/  (data: $($Kit.DataFile), engine: $($Kit.Provider))"
-    if ($Kit.DemoSignIn) { Write-Host "Demo sign-in is ON: anyone who can reach this page can act as any $($Kit.AppName) person. Review only." -ForegroundColor Yellow }
+    Write-Host "$($Kit.Title): http://localhost:$port/  (engine: $($Kit.Provider))"
+    foreach ($app in $Kit.Apps.Values) { Write-Host ("  {0,-12} {1}" -f $app.Key, $(if ($app.Error) { "UNAVAILABLE: $($app.Error)" } else { $app.DataFile })) }
+    if ($Kit.DemoSignIn) { Write-Host 'Demo sign-in is ON: anyone who can reach this page can act as anyone. Review only.' -ForegroundColor Yellow }
     Write-Host 'Ctrl+C stops it.'
     try {
         while ($listener.IsListening) {

@@ -43,7 +43,17 @@ http.createServer((req, res) => {
   const all = [...messages].sort((a, b) => b.ReceivedOn.localeCompare(a.ReceivedOn)).map(list);
   let m;
   if (u.pathname === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(fs.readFileSync(path.join(here, '../dist/index.html'))); }
-  if (u.pathname === '/api/me') return send(res, 200, { me, csrf: 'mock', demoSignIn: false, app: 'ANCHOR', server: 'MOCK', dataFile: 'ANCHOR_BE.accdb' });
+  if (u.pathname === '/api/me') return send(res, 200, { me: { personId: 1, account: me.account, username: me.username }, csrf: 'mock', demoSignIn: false, title: 'Navy Apps', server: 'MOCK',
+    apps: [{ key: 'anchor', name: 'ANCHOR', available: true, error: '', profile: { billet: me.billet, unit: me.unit, isAdmin: true } },
+           { key: 'examgen', name: 'Exam Generator', available: true, error: '', profile: { billet: 'SME, Approver', roles: ['SME', 'Approver'], isAdmin: false } }] });
+  if (u.pathname === '/api/examgen/overview') return send(res, 200, {
+    questionsByStatus: [{ status: 'Draft', n: 4 }, { status: 'In review', n: 3 }, { status: 'Approved', n: 41 }, { status: 'Retired', n: 2 }],
+    examsByStatus: [{ status: 'Draft', n: 1 }, { status: 'Topic review', n: 2 }, { status: 'Approved', n: 6 }],
+    topics: [{ id: 1, name: 'Reactor Plant Fundamentals', defaultCount: 10, questions: 18 }, { id: 2, name: 'Electrical Systems', defaultCount: 8, questions: 14 }, { id: 3, name: 'Damage Control', defaultCount: 6, questions: 16 }],
+    templates: [{ id: 1, name: 'EOOW Qualification' }, { id: 2, name: 'Basic Engineering' }],
+    difficulty: [{ name: 'Basic' }, { name: 'Intermediate' }, { name: 'Advanced' }],
+    classLevels: [{ marking: 'UNCLASSIFIED', portion: 'U' }, { marking: 'CUI', portion: 'CUI' }] });
+  if (u.pathname.startsWith('/api/anchor/')) u.pathname = u.pathname.replace('/api/anchor', '/api');
   if (u.pathname === '/api/summary') {
     const ackDue = all.filter((x) => x.ackDue);
     return send(res, 200, { total: all.length, unread: all.filter((x) => x.readState === 'unread').length, ackDueCount: ackDue.length, ackDue, latest: all.slice(0, 8), commandName: 'Commander, Submarine Force Atlantic' });

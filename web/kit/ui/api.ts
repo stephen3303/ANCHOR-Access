@@ -2,21 +2,14 @@
 // with Windows on its own (the server asks for Negotiate/NTLM); writes also
 // carry the token /api/me hands out.
 
-export type Me = {
-  personId: number;
-  account: string;
-  username?: string;
-  billet?: string | null;
-  unit?: string | null;
-  isAdmin?: boolean;
-  [key: string]: unknown;
-};
+export type Me = { personId: number; account: string; username: string };
 
-export type MeResponse = { me: Me; csrf: string; demoSignIn: boolean; app: string; server: string; dataFile: string };
-export type Person = { PersonID: number; Billet: string | null; Unit: string | null; Name: string };
+export type AppEntry = { key: string; name: string; available: boolean; error: string; profile: Record<string, unknown> | null };
+export type MeResponse = { me: Me; apps: AppEntry[]; csrf: string; demoSignIn: boolean; title: string; server: string };
+export type Person = { PersonID: number; Billet: string | null; Unit: string | null; Name: string; Apps: string };
 
 let csrf = '';
-let appKey = 'kit';
+let storeKey = 'kit';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -27,22 +20,22 @@ export class ApiError extends Error {
 // Per-viewer conveniences (demo person, palette). Storage can be blocked.
 export function stored(name: string): string {
   try {
-    return localStorage.getItem(`${appKey}.${name}`) ?? '';
+    return localStorage.getItem(`${storeKey}.${name}`) ?? '';
   } catch {
     return '';
   }
 }
 export function store(name: string, value: string | null) {
   try {
-    if (value === null) localStorage.removeItem(`${appKey}.${name}`);
-    else localStorage.setItem(`${appKey}.${name}`, value);
+    if (value === null) localStorage.removeItem(`${storeKey}.${name}`);
+    else localStorage.setItem(`${storeKey}.${name}`, value);
   } catch {
     /* lasts until reload */
   }
 }
 
-export function setAppKey(key: string) {
-  appKey = key.toLowerCase();
+export function setStoreKey(key: string) {
+  storeKey = key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -58,10 +51,6 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 export const kitApi = {
-  get: <T>(path: string) => call<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => call<T>('POST', path, body),
-  put: <T>(path: string, body?: unknown) => call<T>('PUT', path, body),
-  del: <T>(path: string) => call<T>('DELETE', path),
   async me() {
     const r = await call<MeResponse>('GET', '/api/me');
     csrf = r.csrf;
@@ -69,6 +58,17 @@ export const kitApi = {
   },
   people: () => call<{ people: Person[] }>('GET', '/api/people'),
 };
+
+// One app's routes: appApi('anchor').get('/summary') calls /api/anchor/summary.
+export function appApi(key: string) {
+  const base = `/api/${key}`;
+  return {
+    get: <T>(path: string) => call<T>('GET', base + path),
+    post: <T>(path: string, body?: unknown) => call<T>('POST', base + path, body),
+    put: <T>(path: string, body?: unknown) => call<T>('PUT', base + path, body),
+    del: <T>(path: string) => call<T>('DELETE', base + path),
+  };
+}
 
 export function errText(e: unknown) {
   return e instanceof Error ? e.message : String(e);

@@ -1,188 +1,215 @@
-# ANCHOR web front end (prototype)
+# Web front end on Access data files (prototype)
 
-A browser UI for ANCHOR that reads and writes the same Access data file
-(`ANCHOR_BE.accdb`) as the Access front end. The relational database stays
-the one source of truth: tables, relationships, indexes and the Access app all
-keep working, and both front ends can be open at once.
+One browser front end for all the apps. Each app keeps its own tables in its
+own Access data file (`.accdb`) on the share; there are no Access front ends.
+Access is used only as the database engine, in place of a SQL Server.
 
 ```
- Browser (React, one HTML file)
-      |  HTTP + JSON, Windows sign-in (Negotiate/NTLM)
+ Browser (React, one HTML file): app switcher, one shell, every app's pages
+      |  HTTP + JSON, Windows sign-in (Negotiate/NTLM), localhost only
       v
- web/server/AnchorWeb.ps1 + AnchorApi.ps1 on kit/server/KitWeb.ps1   (Windows PowerShell 5.1)
+ kit/server/KitHost.ps1 + KitWeb.ps1   (Windows PowerShell 5.1, this PC)
+      |  apps/anchor/api.ps1   apps/examgen/api.ps1   ...  (one module per app)
       |  ACE OLE DB, parameterized SQL, transactions
       v
- ANCHOR_BE.accdb  <---- Access front end (ANCHOR.accdb) linked as today
+ S:\Apps\ANCHOR\ANCHOR_BE.accdb   S:\Apps\ExamGen\ExamGen_BE.accdb   ...
+ S:\Apps\Personnel\Personnel_be.accdb   (who is who: shared by every app)
 ```
 
-## Layout: kit core plus app module
-
-This prototype is meant to become the base for every kit app, so the generic
-part is kept apart from ANCHOR's:
+## Layout
 
 ```
 web/
-  kit/                       shared, nothing ANCHOR-specific (see kit/README.md)
-    server/KitWeb.ps1        server core: sign-in, Access engine, security, routing
+  kit/                       shared core, nothing app-specific (see kit/README.md)
+    server/KitWeb.ps1        sign-in, app registry, routing, data layer, security
+    server/KitHost.ps1       reads web.config.json, registers the apps, starts
     Start-KitWeb.ps1         per-PC launcher
-    ui/                      React shell, components, API client, base.css
-    ui/palettes.css          generated from access/tools/make_themes.py
-    tools/make_web_palettes.py
-  server/AnchorWeb.ps1       ANCHOR entry (about 20 lines)
-  server/AnchorApi.ps1       ANCHOR's profile rule and routes (copies of its VBA routines)
-  server/test-web.ps1        end-to-end check on a data file
-  ui/src/                    ANCHOR's pages, main.tsx (nav and routes), anchor.css
+    ui/                      React shell, components, API client, palettes
+  apps/
+    anchor/api.ps1           ANCHOR: profile rule, routes, audit chain
+    anchor/ui/               ANCHOR pages (Home, Messages, Audit)
+    examgen/api.ps1          Exam Generator: profile rule (roles), Overview route
+    examgen/ui/              Exam Generator Overview page
+  ui/                        Vite project: src/main.tsx lists the app modules
   dist/index.html            the built UI (committed)
-  Start-AnchorWeb.cmd, anchor-web.config.example.json
+  test/test-web.ps1          end-to-end check on real data files
+  web.config.example.json    which apps, which data files
+  Start-Web.cmd              double-click launcher
 ```
 
-### What moves into the kit repo
+Adding an app: an `apps/<key>/` folder (module plus pages), one line in
+`ui/src/main.tsx`, one entry in `web.config.json`. Nothing in `kit/` changes.
 
-- `web/kit/` as a whole becomes `access-modern-ui/web/`, versioned like the
-  Access kit (`KIT_WEB_VERSION.txt`), and each app copies it into `web/kit/`.
-- `make_web_palettes.py` reads the kit's own `tools/make_themes.py`, so a
-  palette added there reaches every web app on the next copy.
-- A template app folder (entry script, empty module, `main.tsx`, config
-  example, `.cmd`) so a new app starts from a copy.
-- Later, worth adding to the kit: a generic list/detail page component, a
-  generic audit-trail module for apps that use the same hash-chained audit
-  (today that logic is in `AnchorApi.ps1` because only ANCHOR has it), and
-  the test harness (`test-web.ps1` split into kit checks and app checks).
+## Permissions and audit stay per app
 
-## Why it is built this way
+- **One identity, many permissions.** The server reads the Windows account
+  from the browser and looks it up once in the Personnel directory
+  (`kit_person.windows_account`) to get the `person_id`. Whether that person
+  may use an app, and as what, comes only from **that app's own data file**
+  (ANCHOR: an active `tblPeople` row; Exam Generator: `tblPeople` plus
+  `tblPersonRoles`). The check runs on every request, so removing someone
+  from an app's people list takes effect on their next click.
+- **The shell shows only the apps you have a profile in.** An app whose data
+  file is unreachable is shown as unavailable; the others keep working.
+- **A route sees only its own app's file.** `/api/anchor/...` gets a connection
+  to the ANCHOR file and nothing else. A bug in one module cannot read or
+  change another app's tables through the kit.
+- **Each audit trail lives in its own app's file**, written in the same
+  transaction as the change it records. ANCHOR's hash chain (`modAudit`:
+  SHA-256 over the previous hash and the row) is sealed by the ANCHOR module
+  only; another app with its own audit table keeps its own chain. Chains are
+  never mixed, so one app's file can be verified, archived or handed to an
+  inspector alone.
 
-- **A browser can't open an .accdb.** Something on Windows has to hold the
-  Access engine and answer the browser. That is `AnchorWeb.ps1`.
-- **Nothing to install.** The server is Windows PowerShell (built into every
-  Windows 10/11 PC) and the Access engine that Office already installs. The UI
-  is built once into `web/dist/index.html` and committed, so the machine that
-  runs it needs no Node, no .NET SDK and no admin rights for localhost use.
-- **Windows sign-in, no passwords.** The server asks the browser for the
-  person's Windows account (the same idea as the Access app's sign-in), then
-  looks it up in the shared Personnel directory (`kit_person.windows_account`)
-  to get the `person_id` ANCHOR's tables use. No account, or no active ANCHOR
-  profile: no access.
-- **Same rules as the Access app.** Writes are copies of the Access code paths:
-  - Acknowledge (`modMessages.Acknowledge`): the receipt and its audit row are
-    one transaction; if the audit row can't be written, nothing is saved.
-  - Opening a message (`modMessages.MarkRead`): first open records the read
-    and audits the view.
-  - Audit rows are sealed onto the same SHA-256 hash chain
-    (`modAudit.AuditSealPending`), so **Verify on the Access Audit page still
-    passes after web activity**, and the web Audit page verifies Access rows.
-- **Safe by default.**
-  - Listens on `localhost` only unless started with `-Lan`.
-  - Every value goes to the engine as a parameter, never pasted into SQL.
-  - Writes need a per-run token that only the page itself can read, so another
-    web site can't make the browser acknowledge something on your behalf.
-  - Only its own host names are answered (stops DNS-rebinding tricks).
-  - The page is self-contained with a strict Content-Security-Policy: no
-    scripts, fonts or images from anywhere else.
-  - Classification markings other than UNCLASSIFIED show the demonstration
-    banner (Stephen, 2026-11-05).
-
-## Recommended setup: one copy per PC, one data file on the share
-
-This is the same split as the Access app today. Each PC gets this `web` folder
-(in place of a local ANCHOR.accdb front end), and every copy points at the one
-`ANCHOR_BE.accdb` on the network drive.
+## Recommended setup: one copy per PC, data files on the share
 
 ```
- PC 1: browser -> localhost server ─┐
- PC 2: browser -> localhost server ─┼──> S:\Apps\ANCHOR\ANCHOR_BE.accdb  <── Access front ends
- PC 3: browser -> localhost server ─┘
+ PC 1: browser -> localhost server ─┐      S:\Apps\ANCHOR\ANCHOR_BE.accdb
+ PC 2: browser -> localhost server ─┼──>   S:\Apps\ExamGen\ExamGen_BE.accdb
+ PC 3: browser -> localhost server ─┘      S:\Apps\Personnel\Personnel_be.accdb
 ```
 
-- Each server serves only its own user, so the one-request-at-a-time limit
+- Each server serves only its own user, so its one-request-at-a-time listener
   never matters.
-- Concurrency is the same as N Access front ends: the Access engine's lock file
-  on the share keeps everyone apart, and web and Access users can mix.
 - Localhost only: no firewall rule, no admin step, nothing reachable from the
   network.
+- Each PC needs Windows PowerShell (built in) and the Access engine: the free
+  Microsoft Access Database Engine redistributable is enough. No Access, no
+  Node, no .NET SDK, no admin rights.
 
-To set up a PC: copy the `web` folder (only `Start-AnchorWeb.cmd`, `kit\`,
-`server\` and `dist\` are needed), copy `anchor-web.config.example.json` to
-`anchor-web.config.json` and set the two paths, then double-click
-`Start-AnchorWeb.cmd`. It starts the server hidden (picking the PowerShell that
-matches Office's bitness), waits for it, and opens the browser. Running it again
-just opens the browser.
-`kit\Start-KitWeb.ps1 -Config anchor-web.config.json -Stop` stops it. The log
-is `%LOCALAPPDATA%\ANCHOR\web.log`.
+To set up a PC: copy the `web` folder (only `Start-Web.cmd`, `kit\`, `apps\`
+and `dist\` are needed), copy `web.config.example.json` to `web.config.json`
+and set the paths, then double-click `Start-Web.cmd`. It starts the server
+hidden (picking the PowerShell that matches the engine's bitness), waits for
+it, and opens the browser. Running it again just opens the browser.
+`kit\Start-KitWeb.ps1 -Config web.config.json -Stop` stops it. The log is
+`%LOCALAPPDATA%\<title>\web.log`.
 
 Tip: put the `web` folder itself on the share and give each PC a shortcut to
-its `Start-AnchorWeb.cmd`. Then one update reaches every PC.
+`Start-Web.cmd`; one update then reaches every PC.
 
-Each PC needs Access or the free Access Database Engine, and the person needs
-read/write rights on the share (the same as for the Access front end).
-
-## Run it by hand
-
-From the `access` folder, with a seeded data file (see `backend\new-backend.ps1`
-and `backend\seed-backend.ps1`):
+## Run it by hand, and test it
 
 ```powershell
 # Real sign-in: Windows account -> Personnel directory
-..\web\server\AnchorWeb.ps1 -DataFile build\ANCHOR_BE.accdb -Personnel S:\Apps\Personnel\Personnel_be.accdb
+web\kit\server\KitHost.ps1 -Config web\web.config.json
 
 # Review/demo: pick who to act as (anyone who reaches the page can be anyone)
-..\web\server\AnchorWeb.ps1 -DataFile build\ANCHOR_BE.accdb -DemoSignIn
+web\kit\server\KitHost.ps1 -Config web\web.config.json -DemoSignIn
+
+# End-to-end check on scratch copies (it writes one read, one ack and audit rows)
+web\test\test-web.ps1 -DataFile access\build\ANCHOR_BE.accdb -ExamGenDataFile <eg>\access\build\ExamGen_BE.accdb
 ```
 
-Then open <http://localhost:8787/> in Edge or Chrome. Ctrl+C stops the server.
-
-Bitness: the PowerShell that runs the server must match Office. With 64-bit
-Office (the usual case) use the normal `powershell.exe`. With 32-bit Office use
-`C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe`. On a PC without
-Office, install the free Microsoft Access Database Engine redistributable.
-
-To serve other PCs on the network (`-Lan`), an admin reserves the address once
-and opens the port:
-
-```powershell
-netsh http add urlacl url=http://+:8787/ user=DOMAIN\serviceaccount
-New-NetFirewallRule -DisplayName "ANCHOR web" -Direction Inbound -Protocol TCP -LocalPort 8787 -Action Allow
-```
+Then open <http://localhost:8787/>. The test also checks the per-app rules: the
+same person is refused by Exam Generator without a profile there while ANCHOR
+still answers, then allowed once a profile row exists.
 
 ## Change the UI
 
 ```bash
 cd web/ui
 npm install
-npm run mock     # stand-in API over access/backend/seed, port 8788 (no Access needed)
+npm run mock     # stand-in API on port 8788 (ANCHOR over access/backend/seed, invented Exam Generator data)
 npm run dev      # Vite dev server, proxies /api to the mock
 npm run build    # writes web/dist/index.html; commit it
 ```
 
 ## What's in the prototype
 
-| Page | Reads | Writes |
+| App | Page | Reads | Writes |
+|---|---|---|---|
+| (shell) | Apps | your apps and profiles | none |
+| ANCHOR | Home | acknowledgements due, unread, latest traffic | Acknowledge |
+| ANCHOR | Messages | search and filters; message view with sections, attachments, receipts, integrity | mark read (first open audited), Acknowledge |
+| ANCHOR | Audit | last 200 entries, full chain verify | none |
+| Exam Generator | Overview | questions and exams by status, topics, templates, lookups | none |
+
+API: `GET /api/me` (you, your apps, token), `/api/people` (demo only), and per
+app under `/api/<key>/`: ANCHOR `summary`, `messages`, `messages/{id}`,
+`POST messages/{id}/ack`, `audit`; Exam Generator `overview`.
+
+## Concurrency: what Access as the database can and can't do
+
+Stated plainly, for this setup (one localhost server per PC, files on an SMB
+share):
+
+| Limit | What it means here |
+|---|---|
+| **255 connections per file** (engine maximum) | Each server opens a file only for the length of one request, so even 100 PCs rarely hold more than a handful at once. Not the limit you will hit first. |
+| **Locking is file-sharing, not a server** | Every PC's engine locks pages in the file over the network and coordinates through the `.laccdb` lock file. Two people writing the same area at the same moment wait on each other; the server runs a locked request again up to 4 times (150 to 450 ms apart). Two PCs inserting the same row at once is handled the same way: the loser rolls back, runs again and sees the winner's row (the two-server race test: the same person acknowledging on two servers at once must get one 200 and one 409, one receipt, one audit row). |
+| **Comfortable range** | Tens of people actively using one app's file, mostly reading, on a wired LAN. Writes such as acknowledgements are short and fine. Separate files per app help: ANCHOR traffic never locks Exam Generator's file. |
+| **2 GB per file** | Including attachments and bloat between compactions. Separate files per app spread this out. Keep large attachments as files on the share, not in tables. |
+| **Network quality matters** | A PC dropping off Wi-Fi or VPN in the middle of a write can corrupt the file. Wired LAN only for anyone who writes. |
+| **No recovery log** | There is no point-in-time restore. Back up by copying each file on a schedule while nobody is connected (a copy taken mid-write can be inconsistent), and keep several days. Compact and repair needs everyone out. |
+| **Each request opens the file** | Over SMB that costs tens of milliseconds per request on a good LAN, more on a slow one. Acceptable for a page at a time; if it shows, hold one connection per app open in each server. |
+
+Time to move an app's tables to SQL Server (Express is free) when you see any
+of: regular "record is locked" messages, a file past about 1 GB, people who must
+work over VPN or Wi-Fi, a need for point-in-time restore or round-the-clock
+use, or more than roughly 50 people writing to one app daily. The move is per
+app: one app can be on SQL Server while the rest stay on Access files.
+
+## Keeping a SQL Server move cheap
+
+- **One seam.** Routes reach the database only through `Open-KitDb`,
+  `Invoke-KitQuery`, `Invoke-KitNonQuery`, `Use-KitTransaction` and two
+  error tests (`Test-KitLocked`, `Test-KitDuplicateKey`) (see `kit/README.md`). The SQL Server OLE DB driver
+  (MSOLEDBSQL) takes the same positional `?` parameters, so routes keep their
+  parameter lists.
+- **What changes in an app's SQL** when it moves: `IIf(...)` to `CASE WHEN`,
+  `Now()` to `SYSDATETIME()`, Yes/No values (-1) to `bit` (1),
+  `AUTOINCREMENT`/`MEMO` in DDL to `IDENTITY`/`nvarchar(max)`, string `&` to `+`.
+  Today the ANCHOR module has 6 `IIf` and 5 `Now()`; Exam Generator has none.
+  New routes should keep to SQL that both engines accept where it's easy
+  (`CASE` isn't available in Access, so `IIf` stays for now).
+- **The schema is untouched.** Existing `.accdb` schemas are read as they are;
+  nothing in the web layer needs a column added. Each file keeps its tables,
+  relationships and indexes, and SQL Server's upsizing tools can copy them.
+
+## Without Access front ends: what has to be ported
+
+With no Access apps, every business rule the VBA modules carry today must live
+in the server module (`apps/<key>/api.ps1`) with a page for it. Layout-only
+modules (`modBuild*`, themes, palettes, UI helpers) are not ported: the React
+shell replaces them. Line counts are the VBA today, as a size guide.
+
+| App | Logic to port (VBA module, lines) | Notes |
 |---|---|---|
-| Home | acknowledgements due, unread count, latest traffic | Acknowledge |
-| Messages | list with search, precedence, unread and ack-due filters; message view with sections, attachments, receipts, official text, integrity | mark read (first open audited), Acknowledge |
-| Audit | last 200 entries, full chain verify (Recompute) | none |
+| **ANCHOR** | Drafting `modDrafting` (969), routing and release `modRouting` (656), naval message format `modNavalFormat` (730), templates `modTemplates` (622), subscriptions and approvals `modSubscriptions` (396), briefings `modBriefings` (312), watch turnover `modWatch` (272), search `modSearch` (263), reports `modReports` (399), admin `modAdmin` (377), sign-in and profile `modSignIn` (358). Done in the prototype: read/acknowledge (`modMessages`, `modMessageView`) and audit (`modAudit`). | Mail ingest `modAnchorIngest` (1,309) drives Outlook through COM; a localhost server can do the same as the signed-in user, but it is the riskiest piece. Message Generator's drafting is absorbed into ANCHOR. |
+| **Exam Generator** | Question workflow and versioning `modQuestions` (1,181), exam build and question swap `modExams` (1,049), question approvals `modApprovals` (383), exam sign-off `modExamApprovals` (608), notifications and tasks `modNotify` (568), admin `modAdmin` (490), sign-in and roles `modSignIn` (640), stats `modStats` (169), logs `modLogs` (156). Done: read-only Overview. | Exam output `modExamDoc` (561) drives Word through COM; on the web the exam can be produced as print-ready HTML/PDF from the browser instead, or the server can keep using Word on the PC. |
+| **SPM** | Programs `modPrograms` (729), people `modPeople` (524), Personnel import/export `modPersonnelIO` (466), views `modViews` (390), page 13 `modPage13` (172), command types `modCommandType` (267), roles `modRoles` (257), access rules `modAccess` (236), records `modRecords` (112), document types `modDocTypes` (193), sign-in `modSignIn` (406). | Dialog and form-library modules (`modDialogs`, `modFormLibrary`, `modPills`) are UI and become React pages. |
+| **SABER** | Inspections `modInspections` (578), grading `modGrading` (308), roll-up `modRollup` (427), comments `modComments` (478), CAP library `modCapLibrary` (297), team and roster `modTeam`, `modRoster` (383), reports `modReports` (573), sign-in `modAuth` (157). | Excel export `modXlsx`/`modZip` (440) writes the file itself (no Excel COM), so it ports directly. |
+| **Message Generator** | Absorbed by ANCHOR: its drafting, routing, approvals, revision and formatting rules (`modMGDrafts`, `modMGRoute`, `modMGApprovals`, `modMGRevision`, `modMGFormat`) map onto ANCHOR's. | Port only what ANCHOR lacks; its own data file can be retired once migrated. |
+| **Shared** | Personnel directory admin and sign-in (`modPersonnel`, `modKitUser`), back-end creation and upgrades (`modBuildBackEnd` in each app). | Back-end builders run inside Access today. Without Access they become PowerShell scripts that run the same DDL through the engine, so a new or upgraded data file needs no Access either. |
 
-Every page also has the Palette picker (8 kit palettes).
+Rule while porting: each route is a line-for-line copy of its VBA routine,
+named in a comment, with the same transaction boundaries and audit rows; then
+the VBA is retired. The prototype's acknowledge and mark-read routes show the
+pattern.
 
-API (all JSON): `GET /api/me`, `GET /api/summary`, `GET /api/messages?q=&precedence=&unread=1&ackDue=1`,
-`GET /api/messages/{id}`, `POST /api/messages/{id}/ack`, `GET /api/audit` (ANCHOR), plus the kit's `GET /api/me` and, with `-DemoSignIn`, `GET /api/people`.
+## What moves into the kit repo
 
-## Limits to know before going further
+- `web/kit/` as a whole, versioned (`KIT_WEB_VERSION.txt`) and copied into the
+  web front end the way the Access kit is copied into each app.
+- `make_web_palettes.py` reads the kit's own `make_themes.py`, so a palette
+  added there reaches the web on the next copy.
+- A template app folder (`apps/_template/`: module with a profile rule and one
+  route, one page) so a new app starts from a copy.
+- Worth adding later: a generic list/detail page component, a generic
+  hash-chained audit module (today in ANCHOR's module), and the test harness
+  split into kit checks and per-app checks.
 
-- **Access file concurrency.** The Access engine is a file-sharing database:
-  every user (Access or web) locks pages of the same file over the network.
-  It's comfortable for tens of people and fine for this server, which is one
-  process making short requests one at a time. For hundreds of concurrent
-  users, or a server farm, move the tables to SQL Server (Express is free) and
-  keep Access as a linked front end; the API and UI stay the same.
-- **One request at a time.** PowerShell's listener here is single-threaded.
-  With one copy per PC that never matters. Only the shared-server option
-  (`-Lan`) would feel it; if that's ever wanted at scale, the same endpoints
-  port directly to a small C# service (one .exe, Windows sign-in, OLE DB).
-- **The data file's network share** must be reachable by the account that runs
-  the server, with the same read/write rights the Access front end needs.
-- **Palette switching.** The sidebar's Palette list has the same palettes as
-  the Access apps (generated from `make_themes.py`); the choice is kept per
-  browser.
-- **Business rules live in two places** (VBA and the server) for the actions
-  the web does. Keep each web write a line-for-line copy of its VBA routine and
-  name that routine in a comment, as the prototype does.
+Where the web front end itself lives (a new repo, the kit repo, or here) is
+still Stephen's call; it is kept here until then.
+
+## Security defaults
+
+- Listens on `localhost` only unless started with `-Lan`.
+- Every value goes to the engine as a parameter, never pasted into SQL.
+- Writes need a per-run token only the page itself can read, so another site
+  can't make the browser act for you.
+- Only its own host names are answered (stops DNS-rebinding tricks).
+- The page is self-contained with a strict Content-Security-Policy.
+- Classification markings other than UNCLASSIFIED show the demonstration
+  banner (Stephen, 2026-11-05).

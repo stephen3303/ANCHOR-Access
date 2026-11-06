@@ -122,3 +122,19 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .kit-main main { padding: 16px; }
   .kit-topbar { padding: 8px 16px; }
 }
+
+/* ---- multi-app: switcher, app cards ---- */
+a.kit-brand { display: block; text-decoration: none; }
+.kit-apps { display: flex; flex-direction: column; gap: 2px; padding: 12px 10px 4px; border-bottom: 1px solid var(--clr-sidebar-line); }
+.kit-apps a { color: var(--clr-nav-fg); text-decoration: none; padding: 7px 12px; border-radius: 6px; font-size: 13px; }
+.kit-apps a:hover { background: var(--clr-sidebar-line); color: var(--clr-nav-active-fg); }
+.kit-apps a.active { color: var(--clr-nav-active-fg); font-weight: 600; box-shadow: inset 3px 0 0 var(--clr-nav-active-fg); }
+.kit-nav-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--clr-nav-muted); padding: 4px 12px 6px; }
+.kit-app-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.kit-app-card { display: flex; flex-direction: column; gap: 6px; padding: 18px; background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: var(--kit-radius); color: var(--clr-fg); text-decoration: none; }
+.kit-app-card:hover { border-color: var(--clr-primary); background: var(--clr-primary-soft); }
+.kit-app-card-mark { font-size: 24px; }
+.kit-plain { margin: 0; padding-left: 18px; }
+@media (max-width: 760px) {
+  .kit-apps { flex-direction: row; flex-wrap: wrap; padding: 8px; }
+}

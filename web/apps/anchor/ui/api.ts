@@ -1,5 +1,7 @@
-// ANCHOR's endpoints (web/server/AnchorApi.ps1), over the kit client.
-import { kitApi } from '@kit';
+// ANCHOR's endpoints (web/apps/anchor/api.ps1, under /api/anchor/), over the kit client.
+import { appApi } from '@kit';
+
+const anchor = appApi('anchor');
 
 export type ListMessage = {
   id: number;
@@ -37,16 +39,16 @@ export type AuditRow = {
 export type AuditResponse = { rows: AuditRow[]; chain: { ok: boolean; checked: number; problem: string } };
 
 export const api = {
-  summary: () => kitApi.get<Summary>('/api/summary'),
+  summary: () => anchor.get<Summary>('/summary'),
   messages: (f: { q?: string; precedence?: string; unread?: boolean; ackDue?: boolean }) => {
     const p = new URLSearchParams();
     if (f.q) p.set('q', f.q);
     if (f.precedence) p.set('precedence', f.precedence);
     if (f.unread) p.set('unread', '1');
     if (f.ackDue) p.set('ackDue', '1');
-    return kitApi.get<{ messages: ListMessage[] }>(`/api/messages?${p}`);
+    return anchor.get<{ messages: ListMessage[] }>(`/messages?${p}`);
   },
-  message: (id: number) => kitApi.get<MessageDetail>(`/api/messages/${id}`),
-  acknowledge: (id: number) => kitApi.post<{ ok: boolean }>(`/api/messages/${id}/ack`),
-  audit: () => kitApi.get<AuditResponse>('/api/audit'),
+  message: (id: number) => anchor.get<MessageDetail>(`/messages/${id}`),
+  acknowledge: (id: number) => anchor.post<{ ok: boolean }>(`/messages/${id}/ack`),
+  audit: () => anchor.get<AuditResponse>('/audit'),
 };
