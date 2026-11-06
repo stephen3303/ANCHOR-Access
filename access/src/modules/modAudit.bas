@@ -37,15 +37,17 @@ Private Const GENESIS As String = "ANCHOR-AUDIT-GENESIS"
 '   search) use AuditTry, which logs a failure and carries on.
 Public Sub AuditLog(ByVal action As String, ByVal resource As String, ByVal details As String, _
         Optional ByVal classif As String = "UNCLASSIFIED", Optional ByVal result As String = "Success")
-    Dim pid As Long, who As String
+    Dim pid As Long, who As String, dev As String
     If Not DataLinked() Then Exit Sub
     pid = SignedInPersonID()
     who = Nz(TempVars("Username"), "")
     If Len(who) = 0 Then who = SignedInName()
+    dev = Nz(TempVars("AuditDevice"), "")          ' the web bridge sets "<computer> (web)"
+    If Len(dev) = 0 Then dev = Environ$("COMPUTERNAME")
     KitExecute "INSERT INTO tblAudit (LoggedAt, PersonID, UserName, Action, Resource, Classification, Result, Device, Location, Details) " & _
         "VALUES (Now(), " & IIf(pid = 0, "Null", pid) & ", " & Q(Left$(who, 100)) & ", " & Q(Left$(action, 40)) & ", " & _
         Q(Left$(resource, 150)) & ", " & Q(Left$(classif, 20)) & ", " & Q(Left$(result, 10)) & ", " & _
-        Q(Left$(Environ$("COMPUTERNAME"), 64)) & ", " & Q(Left$(PersonUnit(pid), 64)) & ", " & Q(details) & ")"
+        Q(Left$(dev, 64)) & ", " & Q(Left$(PersonUnit(pid), 64)) & ", " & Q(details) & ")"
     AuditSealPending
 End Sub
 
