@@ -56,6 +56,7 @@ Private Function BeginCall(ByVal personId As Long, ByVal personName As String) A
     TempVars("PersonID") = personId
     TempVars("PersonName") = personName
     TempVars("Username") = personName
+    TempVars("AuditDevice") = Environ$("COMPUTERNAME") & " (web)"    ' modAudit: tells web rows apart
     BeginCall = LoadRoles()
 End Function
 
@@ -64,6 +65,7 @@ Private Sub EndCall()
     TempVars("PersonID") = 0
     TempVars("PersonName") = ""
     TempVars("Username") = ""
+    TempVars("AuditDevice") = ""
     ClearRolesForBridge
 End Sub
 
@@ -153,11 +155,12 @@ Public Function WebTestMsgBox() As String
     WebTestMsgBox = OkJson()
 End Function
 
-' An Access-generated prompt: an action query with warnings on asks
-' "You are about to update 0 row(s)". It changes nothing.
+' An Access-generated prompt: a query naming a field that doesn't exist
+' makes Access ask "Enter Parameter Value" (SetWarnings doesn't stop it;
+' the update-confirmation prompt used first never appears in a hidden
+' instance). It changes nothing.
 Public Function WebTestAccessDialog() As String
-    DoCmd.SetWarnings True
-    DoCmd.RunSQL "UPDATE tblSettings SET SettingValue=SettingValue WHERE SettingKey='~no such key~'"
+    DoCmd.RunSQL "UPDATE tblSettings SET SettingValue=SettingValue WHERE SettingKey=[No such field]"
     WebTestAccessDialog = OkJson()
 End Function
 

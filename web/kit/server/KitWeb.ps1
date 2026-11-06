@@ -279,7 +279,7 @@ function Send-Kit($ctx, [int]$status, [string]$body, [string]$type = 'applicatio
 function Send-KitJson($ctx, [int]$status, $obj) { Send-Kit $ctx $status (ConvertTo-Json -InputObject $obj -Depth 8 -Compress) }
 
 function Test-KitLocked($err) {
-    return ($err.Exception.ToString() -match 'currently locked|could not lock|Could not update|already in use|locked by user')
+    return ($err.Exception.ToString() -match 'currently locked|could not lock|Could not update|already in use|locked by user|placed in a state')
 }
 
 # Another PC inserted the same key between this request's check and its
@@ -335,8 +335,11 @@ function Invoke-KitRequest($ctx) {
     foreach ($k in $req.QueryString.AllKeys) { if ($k) { $query[$k] = $req.QueryString[$k] } }
 
     for ($attempt = 1; ; $attempt++) {
-        $conn = Open-KitDb $app.DataFile
+        $conn = $null
         try {
+            # Opening is inside the retry too: while another PC's engine
+            # briefly holds the file (error 3734), the open itself fails.
+            $conn = Open-KitDb $app.DataFile
             $appProfile = Get-KitAppProfile $app $conn $person.personId
             if ($null -eq $appProfile) { Send-KitJson $ctx 403 @{ error = "You have no $($app.Name) profile. Ask a $($app.Name) admin to add you." }; return }
             $me = @{ personId = $person.personId; account = $person.account; username = $person.username; profile = $appProfile }
@@ -358,7 +361,7 @@ function Invoke-KitRequest($ctx) {
             # answers twice.
             if ($attempt -lt 4 -and ((Test-KitLocked $_) -or (Test-KitDuplicateKey $_))) { Start-Sleep -Milliseconds (150 * $attempt); continue }
             throw
-        } finally { $conn.Close() }
+        } finally { if ($conn) { $conn.Close() } }
     }
 }
 

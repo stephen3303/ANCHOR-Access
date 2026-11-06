@@ -42,7 +42,14 @@ function Api([string]$method, [string]$path, $headers = @{}) {
     } catch [System.Net.WebException] {
         $resp = $_.Exception.Response
         if (-not $resp) { throw }
-        $txt = (New-Object System.IO.StreamReader($resp.GetResponseStream())).ReadToEnd()
+        # PowerShell 5.1 has often read the body already: it is in ErrorDetails.
+        $txt = ''
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $txt = $_.ErrorDetails.Message }
+        else {
+            $st = $resp.GetResponseStream()
+            try { if ($st.CanSeek) { $st.Position = 0 } } catch { }
+            $txt = (New-Object System.IO.StreamReader($st)).ReadToEnd()
+        }
         $body = $null; try { $body = $txt | ConvertFrom-Json } catch { }
         return @{ status = [int]$resp.StatusCode; body = $body; raw = $txt }
     }

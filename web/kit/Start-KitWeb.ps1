@@ -32,6 +32,17 @@ function Stop-Server {
         if ($old) { Stop-Process -Id ([int]$old) -Force -ErrorAction SilentlyContinue }
         Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
     }
+    # Hidden Access of apps that use the bridge (spike): the server is ended
+    # with -Force, so its own clean-up doesn't run.
+    foreach ($a in @($cfg.apps | Where-Object { $_.bridge })) {
+        $bp = (Full $a.bridge.logic) + '.pid'
+        if (Test-Path $bp) {
+            $old = [int](Get-Content $bp -TotalCount 1 -ErrorAction SilentlyContinue)
+            $p = Get-Process -Id $old -ErrorAction SilentlyContinue
+            if ($p -and $p.ProcessName -eq 'MSACCESS') { Stop-Process -Id $old -Force -ErrorAction SilentlyContinue }
+            Remove-Item $bp -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 if ($Stop) { Stop-Server; Write-Host "$($cfg.title) stopped."; return }
 

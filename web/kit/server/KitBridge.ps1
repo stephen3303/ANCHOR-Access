@@ -41,6 +41,7 @@ function Get-KitAccessExe {
 function Start-KitBridge($app) {
     $b = $app.Bridge
     if (-not (Test-Path $b.LogicFile)) { throw "The logic file is missing: $($b.LogicFile)" }
+    Stop-KitStaleBridge $b
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $acc = $null; $procId = 0
     if ($b.Runtime) {
@@ -49,10 +50,25 @@ function Start-KitBridge($app) {
         $w = New-Object KitAccessWatch -ArgumentList ([uint32]$procId), 60, $false
         $w.Start()
         try {
-            # The opened file registers itself; GetObject(path) returns its Application.
+            # GetObject(path) returns the Application that has the file open. Asked
+            # before /runtime has opened it, Windows starts a second, FULL Access
+            # to open the file instead (found on VM #1, 2026-11-06), and the
+            # watcher above would be watching the wrong process. So wait for the
+            # file's lock file, bind, and keep the binding only if it is our
+            # process; otherwise close the stray one and try again.
+            $lock = [IO.Path]::ChangeExtension($b.LogicFile, '.laccdb')
             for ($i = 0; $i -lt 240 -and -not $acc; $i++) {
                 if ($proc.HasExited) { break }
-                try { $acc = [Runtime.InteropServices.Marshal]::BindToMoniker($b.LogicFile) } catch { Start-Sleep -Milliseconds 250 }
+                if (-not (Test-Path $lock)) { Start-Sleep -Milliseconds 250; continue }
+                $cand = $null
+                try { $cand = [Runtime.InteropServices.Marshal]::BindToMoniker($b.LogicFile) } catch { Start-Sleep -Milliseconds 250; continue }
+                $candPid = 0; try { $candPid = [int](Get-AccessPid $cand) } catch { }
+                if ($candPid -eq $procId) { $acc = $cand; break }
+                Write-Warning "bridge: bound to Access pid $candPid, not the /runtime pid $procId; closing it and retrying"
+                try { $cand.Quit() } catch { }
+                try { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($cand) } catch { }
+                if ($candPid) { Stop-Process -Id $candPid -Force -ErrorAction SilentlyContinue }
+                Start-Sleep -Milliseconds 500
             }
         } finally { $found = $w.Stop() }
         if (-not $acc) { throw ("Access /runtime did not open the logic file. " + ($found -join '; ')) }
@@ -74,6 +90,21 @@ function Start-KitBridge($app) {
     $b.StartMs = [int]$sw.ElapsedMilliseconds
     if (-not $b.FirstStartMs) { $b.FirstStartMs = $b.StartMs }
     Write-Host ("{0} bridge: Access {1} pid {2} ready in {3} ms" -f $app.Key, $(if ($b.Runtime) { '/runtime' } else { 'automation' }), $procId, $b.StartMs)
+}
+
+# A server that was killed (not stopped) leaves its hidden Access running,
+# holding the logic file. The pid file names it: end it before starting anew.
+function Stop-KitStaleBridge($b) {
+    if (-not (Test-Path $b.PidFile)) { return }
+    $old = 0; try { $old = [int](Get-Content $b.PidFile -TotalCount 1) } catch { }
+    if ($old) {
+        $p = Get-Process -Id $old -ErrorAction SilentlyContinue
+        if ($p -and $p.ProcessName -eq 'MSACCESS') {
+            Write-Warning "bridge: ending hidden Access pid $old left by a server that didn't stop cleanly"
+            try { $p.Kill(); [void]$p.WaitForExit(5000) } catch { }
+        }
+    }
+    Remove-Item $b.PidFile -ErrorAction SilentlyContinue
 }
 
 function Stop-KitBridge($app) {

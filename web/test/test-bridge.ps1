@@ -44,7 +44,14 @@ function Api([string]$method, [string]$path, $headers = @{}) {
     } catch [System.Net.WebException] {
         $resp = $_.Exception.Response
         if (-not $resp) { throw }
-        $txt = (New-Object System.IO.StreamReader($resp.GetResponseStream())).ReadToEnd()
+        # PowerShell 5.1 has often read the body already: it is in ErrorDetails.
+        $txt = ''
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $txt = $_.ErrorDetails.Message }
+        else {
+            $st = $resp.GetResponseStream()
+            try { if ($st.CanSeek) { $st.Position = 0 } } catch { }
+            $txt = (New-Object System.IO.StreamReader($st)).ReadToEnd()
+        }
         $body = $null; try { $body = $txt | ConvertFrom-Json } catch { }
         return @{ status = [int]$resp.StatusCode; body = $body; raw = $txt }
     }
@@ -107,6 +114,7 @@ try {
         $audit = (Api GET '/api/anchor/audit' $w).body
         $mine = @($audit.rows | Where-Object { $_.Action -eq 'Acknowledge' -and $_.Resource -like "*$($target.reference)*" -and $_.Details -eq 'Receipt acknowledged in ANCHOR.' })
         Check 'audit row written by the VBA routine' ($mine.Count -ge 1) ("Device $($mine[0].Device)")
+        Check '... and marked as a web action' ($mine.Count -ge 1 -and $mine[0].Device -like '*(web)')
     }
 
     $st0 = (Api GET '/api/anchor/bridge/status' $w).body

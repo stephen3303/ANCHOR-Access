@@ -1,3 +1,5 @@
+# (Kit web copy: polls every 50 ms and wakes at once on Stop, so a short
+# COM call isn't held up by the watcher. Otherwise the same as access\tools.)
 # Watches an automated Access instance for modal dialogs (VBA compile errors, runtime
 # error boxes, MsgBox calls) and hangs, so a script driving Access over COM reports them
 # instead of blocking forever behind a window nobody can see.
@@ -33,6 +35,7 @@ public class KitAccessWatch {
     readonly int timeoutMs;
     readonly HashSet<IntPtr> seen = new HashSet<IntPtr>();
     volatile bool stop;
+    readonly ManualResetEvent wake = new ManualResetEvent(false);
     Thread thread;
 
     public KitAccessWatch(uint pid, int timeoutSec, bool reportOnly) {
@@ -106,12 +109,13 @@ public class KitAccessWatch {
                 try { proc.Kill(); Killed = true; } catch { }
                 return;
             }
-            Thread.Sleep(250);
+            wake.WaitOne(50);
         }
     }
 
     public string[] Stop() {
         stop = true;
+        wake.Set();
         if (thread != null) thread.Join(2000);
         lock (Found) return Found.ToArray();
     }
