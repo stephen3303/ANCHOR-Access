@@ -47,7 +47,37 @@ keep working, and both front ends can be open at once.
   - Classification markings other than UNCLASSIFIED show the demonstration
     banner (Stephen, 2026-11-05).
 
-## Run it
+## Recommended setup: one copy per PC, one data file on the share
+
+This is the same split as the Access app today. Each PC gets this `web` folder
+(in place of a local ANCHOR.accdb front end), and every copy points at the one
+`ANCHOR_BE.accdb` on the network drive.
+
+```
+ PC 1: browser -> localhost server ─┐
+ PC 2: browser -> localhost server ─┼──> S:\Apps\ANCHOR\ANCHOR_BE.accdb  <── Access front ends
+ PC 3: browser -> localhost server ─┘
+```
+
+- Each server serves only its own user, so the one-request-at-a-time limit
+  never matters.
+- Concurrency is the same as N Access front ends: the Access engine's lock file
+  on the share keeps everyone apart, and web and Access users can mix.
+- Localhost only: no firewall rule, no admin step, nothing reachable from the
+  network.
+
+To set up a PC: copy the `web` folder (only `Start-AnchorWeb.cmd`,
+`Start-AnchorWeb.ps1`, `server\` and `dist\` are needed), copy
+`anchor-web.config.example.json` to `anchor-web.config.json` and set the two
+paths, then double-click `Start-AnchorWeb.cmd`. It starts the server hidden
+(picking the PowerShell that matches Office's bitness), waits for it, and opens
+the browser. Running it again just opens the browser. `Start-AnchorWeb.ps1 -Stop`
+stops it. The log is `%LOCALAPPDATA%\ANCHOR\web.log`.
+
+Each PC needs Access or the free Access Database Engine, and the person needs
+read/write rights on the share (the same as for the Access front end).
+
+## Run it by hand
 
 From the `access` folder, with a seeded data file (see `backend\new-backend.ps1`
 and `backend\seed-backend.ps1`):
@@ -105,9 +135,9 @@ API (all JSON): `GET /api/me`, `GET /api/summary`, `GET /api/messages?q=&precede
   users, or a server farm, move the tables to SQL Server (Express is free) and
   keep Access as a linked front end; the API and UI stay the same.
 - **One request at a time.** PowerShell's listener here is single-threaded.
-  Each request is a few to tens of milliseconds, so a small office won't notice.
-  If it becomes a bottleneck, the same endpoints port directly to a small C#
-  ASP.NET Core service (also one .exe, also Windows sign-in, also OLE DB).
+  With one copy per PC that never matters. Only the shared-server option
+  (`-Lan`) would feel it; if that's ever wanted at scale, the same endpoints
+  port directly to a small C# service (one .exe, Windows sign-in, OLE DB).
 - **The data file's network share** must be reachable by the account that runs
   the server, with the same read/write rights the Access front end needs.
 - **Business rules live in two places** (VBA and the server) for the actions
