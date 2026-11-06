@@ -1,16 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError, type AuditResponse, type ListMessage, type MessageDetail, type Summary } from './api';
-import { Card, ClassificationBanner, dueText, Empty, fmtDate, LifecyclePill, PrecedencePill, Stat } from './ui';
+import { Card, ClassificationBanner, dueText, Empty, errText, fmtDate, go, PageHead, Pill, Stat, useNarrow, useToast, type Tone } from '@kit';
+import { api, type AuditResponse, type ListMessage, type MessageDetail, type Summary } from './api';
 
-type Toast = (text: string, tone?: 'ok' | 'error') => void;
+// ---------------------------------------------------------------- ANCHOR pills
 
-function errText(e: unknown) {
-  return e instanceof ApiError || e instanceof Error ? e.message : String(e);
+const PRECEDENCE_TONE: Record<string, Tone> = { FLASH: 'solid-danger', IMMEDIATE: 'solid-warning', PRIORITY: 'info', ROUTINE: 'neutral' };
+const LIFECYCLE_TONE: Record<string, Tone> = { CANCELLED: 'neutral', EXPIRED: 'neutral', SUPERSEDED: 'warning', AMENDED: 'info', CORRECTED: 'info' };
+
+function Precedence({ value }: { value: string }) {
+  return <Pill tone={PRECEDENCE_TONE[value] ?? 'neutral'}>{value}</Pill>;
+}
+function Lifecycle({ value }: { value: string }) {
+  return value === 'ACTIVE' ? null : <Pill tone={LIFECYCLE_TONE[value] ?? 'neutral'}>{value}</Pill>;
+}
+function DemoMark({ value }: { value: string }) {
+  return value === 'UNCLASSIFIED' ? null : <Pill tone="danger">{value} (DEMO)</Pill>;
 }
 
 // ---------------------------------------------------------------- Home
 
-export function HomePage({ toast, go }: { toast: Toast; go: (h: string) => void }) {
+export function HomePage() {
+  const toast = useToast();
   const [s, setS] = useState<Summary | null>(null);
   const [err, setErr] = useState('');
   const load = useCallback(() => {
@@ -31,12 +41,9 @@ export function HomePage({ toast, go }: { toast: Toast; go: (h: string) => void 
   if (err) return <Empty>{err}</Empty>;
   if (!s) return <Empty>Loading...</Empty>;
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Home</h1>
-        <p className="muted">{s.commandName}</p>
-      </div>
-      <div className="stats">
+    <div className="kit-page">
+      <PageHead title="Home">{s.commandName}</PageHead>
+      <div className="kit-stats">
         <Stat label="Acknowledgements due" value={s.ackDueCount} tone={s.ackDueCount ? 'warn' : 'ok'} />
         <Stat label="Unread" value={s.unread} tone="info" />
         <Stat label="Messages on file" value={s.total} />
@@ -45,17 +52,17 @@ export function HomePage({ toast, go }: { toast: Toast; go: (h: string) => void 
         {s.ackDue.length === 0 ? (
           <Empty>Nothing waits on your acknowledgement.</Empty>
         ) : (
-          <ul className="ack-list">
+          <ul className="an-ack-list">
             {s.ackDue.map((m) => {
               const due = dueText(m.ackBy);
               return (
                 <li key={m.id}>
-                  <PrecedencePill value={m.precedence} />
-                  <button className="link ack-subject" onClick={() => go(`#/messages/${m.id}`)}>
-                    <span className="ref">{m.reference}</span> {m.subject}
+                  <Precedence value={m.precedence} />
+                  <button className="kit-link an-ack-subject" onClick={() => go(`#/messages/${m.id}`)}>
+                    <span className="an-ref">{m.reference}</span> {m.subject}
                   </button>
-                  <span className={due.overdue ? 'due overdue' : 'due'}>{due.text}</span>
-                  <button className="btn" onClick={() => ack(m)}>
+                  <span className={due.overdue ? 'an-due an-overdue' : 'an-due'}>{due.text}</span>
+                  <button className="kit-btn" onClick={() => ack(m)}>
                     Acknowledge
                   </button>
                 </li>
@@ -64,7 +71,7 @@ export function HomePage({ toast, go }: { toast: Toast; go: (h: string) => void 
           </ul>
         )}
       </Card>
-      <Card title="Latest traffic" action={<button className="link" onClick={() => go('#/messages')}>All messages</button>}>
+      <Card title="Latest traffic" action={<button className="kit-link" onClick={() => go('#/messages')}>All messages</button>}>
         <MessageTable rows={s.latest} onOpen={(id) => go(`#/messages/${id}`)} />
       </Card>
     </div>
@@ -76,21 +83,21 @@ export function HomePage({ toast, go }: { toast: Toast; go: (h: string) => void 
 function MessageTable({ rows, selected, onOpen, compact }: { rows: ListMessage[]; selected?: number; onOpen: (id: number) => void; compact?: boolean }) {
   if (rows.length === 0) return <Empty>No messages match.</Empty>;
   if (compact) {
-    // Beside the open message: two lines a row, so the subject has room.
+    // Beside the open message, or on a phone: two lines a row.
     return (
-      <ul className="compact-list">
+      <ul className="an-compact-list">
         {rows.map((m) => (
           <li key={m.id}>
-            <button className={`compact-row ${m.readState === 'unread' ? 'unread' : ''} ${selected === m.id ? 'selected' : ''}`} onClick={() => onOpen(m.id)}>
-              <span className="compact-top">
-                <span className="dot">{m.readState === 'unread' ? '\u25CF' : ''}</span>
-                <PrecedencePill value={m.precedence} />
-                <span className="ref">{m.reference}</span>
-                <span className="muted compact-dtg">{m.dtg}</span>
+            <button className={`an-compact-row ${m.readState === 'unread' ? 'unread' : ''} ${selected === m.id ? 'selected' : ''}`} onClick={() => onOpen(m.id)}>
+              <span className="an-compact-top">
+                <span className="an-dot">{m.readState === 'unread' ? '●' : ''}</span>
+                <Precedence value={m.precedence} />
+                <span className="an-ref">{m.reference}</span>
+                <span className="kit-muted an-compact-dtg">{m.dtg}</span>
               </span>
-              <span className="compact-subject">
-                {m.subject} <LifecyclePill value={m.lifecycle} />
-                {m.ackDue ? <span className="pill ack-due">Ack due</span> : null}
+              <span className="an-compact-subject">
+                {m.subject} <Lifecycle value={m.lifecycle} /> <DemoMark value={m.classification} />
+                {m.ackDue ? <Pill tone="warning">Ack due</Pill> : null}
               </span>
             </button>
           </li>
@@ -99,8 +106,8 @@ function MessageTable({ rows, selected, onOpen, compact }: { rows: ListMessage[]
     );
   }
   return (
-    <div className="table-wrap">
-      <table className="grid">
+    <div className="kit-table-wrap">
+      <table className="kit-grid an-messages">
         <thead>
           <tr>
             <th aria-label="Unread" />
@@ -113,26 +120,16 @@ function MessageTable({ rows, selected, onOpen, compact }: { rows: ListMessage[]
         </thead>
         <tbody>
           {rows.map((m) => (
-            <tr
-              key={m.id}
-              className={`${m.readState === 'unread' ? 'unread' : ''} ${selected === m.id ? 'selected' : ''}`}
-              onClick={() => onOpen(m.id)}
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && onOpen(m.id)}
-            >
-              <td className="dot">{m.readState === 'unread' ? '●' : ''}</td>
-              <td>
-                <PrecedencePill value={m.precedence} />
+            <tr key={m.id} className={`kit-clickable ${m.readState === 'unread' ? 'unread' : ''} ${selected === m.id ? 'selected' : ''}`}
+              onClick={() => onOpen(m.id)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onOpen(m.id)}>
+              <td className="an-dot">{m.readState === 'unread' ? '●' : ''}</td>
+              <td><Precedence value={m.precedence} /></td>
+              <td className="kit-nowrap">{m.dtg}</td>
+              <td className="kit-nowrap an-ref">{m.reference}</td>
+              <td className="an-subject">
+                {m.subject} <Lifecycle value={m.lifecycle} /> <DemoMark value={m.classification} />
               </td>
-              <td className="nowrap">{m.dtg}</td>
-              <td className="nowrap ref">{m.reference}</td>
-              <td className="subject">
-                {m.subject} <LifecyclePill value={m.lifecycle} />
-                {m.classification !== 'UNCLASSIFIED' && <span className="pill classif-pill">{m.classification} (DEMO)</span>}
-              </td>
-              <td className="nowrap">
-                {m.ackDue ? <span className="pill ack-due">Ack due</span> : m.ackOn ? <span className="muted">Acknowledged</span> : ''}
-              </td>
+              <td className="kit-nowrap">{m.ackDue ? <Pill tone="warning">Ack due</Pill> : m.ackOn ? <span className="kit-muted">Acknowledged</span> : ''}</td>
             </tr>
           ))}
         </tbody>
@@ -141,20 +138,7 @@ function MessageTable({ rows, selected, onOpen, compact }: { rows: ListMessage[]
   );
 }
 
-// True on a phone-width window, where the list always uses two-line rows.
-function useNarrow() {
-  const q = '(max-width: 760px)';
-  const [narrow, setNarrow] = useState(() => matchMedia(q).matches);
-  useEffect(() => {
-    const mq = matchMedia(q);
-    const on = () => setNarrow(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return narrow;
-}
-
-export function MessagesPage({ id, toast, go }: { id?: number; toast: Toast; go: (h: string) => void }) {
+export function MessagesPage({ id }: { id?: number }) {
   const [q, setQ] = useState('');
   const [precedence, setPrecedence] = useState('');
   const [unread, setUnread] = useState(false);
@@ -179,11 +163,9 @@ export function MessagesPage({ id, toast, go }: { id?: number; toast: Toast; go:
   }, [load]);
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Messages</h1>
-      </div>
-      <div className="filters">
+    <div className="kit-page">
+      <PageHead title="Messages" />
+      <div className="kit-filters">
         <input type="search" placeholder="Search subject, reference, originator, type" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
         <select value={precedence} onChange={(e) => setPrecedence(e.target.value)} aria-label="Precedence">
           <option value="">Any precedence</option>
@@ -192,22 +174,25 @@ export function MessagesPage({ id, toast, go }: { id?: number; toast: Toast; go:
           <option>PRIORITY</option>
           <option>ROUTINE</option>
         </select>
-        <label className="check">
+        <label className="kit-check">
           <input type="checkbox" checked={unread} onChange={(e) => setUnread(e.target.checked)} /> Unread only
         </label>
-        <label className="check">
+        <label className="kit-check">
           <input type="checkbox" checked={ackDue} onChange={(e) => setAckDue(e.target.checked)} /> Ack due only
         </label>
       </div>
-      <div className={`split ${id ? 'has-preview' : ''}`}>
-        <Card>{err ? <Empty>{err}</Empty> : rows ? <MessageTable rows={rows} selected={id} compact={!!id || narrow} onOpen={(m) => go(`#/messages/${m}`)} /> : <Empty>Loading...</Empty>}</Card>
-        {id ? <MessageView key={id} id={id} toast={toast} onChanged={load} onClose={() => go('#/messages')} /> : null}
+      <div className={`an-split ${id ? 'has-preview' : ''}`}>
+        <Card>
+          {err ? <Empty>{err}</Empty> : rows ? <MessageTable rows={rows} selected={id} compact={!!id || narrow} onOpen={(m) => go(`#/messages/${m}`)} /> : <Empty>Loading...</Empty>}
+        </Card>
+        {id ? <MessageView key={id} id={id} onChanged={load} onClose={() => go('#/messages')} /> : null}
       </div>
     </div>
   );
 }
 
-function MessageView({ id, toast, onChanged, onClose }: { id: number; toast: Toast; onChanged: () => void; onClose: () => void }) {
+function MessageView({ id, onChanged, onClose }: { id: number; onChanged: () => void; onClose: () => void }) {
+  const toast = useToast();
   const [d, setD] = useState<MessageDetail | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -241,64 +226,46 @@ function MessageView({ id, toast, onChanged, onClose }: { id: number; toast: Toa
   const s = (k: string) => (m[k] == null ? '' : String(m[k]));
   const due = dueText(s('AckDue'));
   return (
-    <section className="card preview" aria-label="Message">
-      <ClassificationBanner value={s('Classification')} />
-      <header className="preview-head">
-        <div className="preview-pills">
-          <PrecedencePill value={s('Precedence')} />
-          <LifecyclePill value={s('Lifecycle')} />
-          <span className="muted">{s('MsgType')}</span>
+    <section className="kit-card an-preview" aria-label="Message">
+      <div className="an-preview-classif"><ClassificationBanner value={s('Classification')} /></div>
+      <header className="an-preview-head">
+        <div className="an-preview-pills">
+          <Precedence value={s('Precedence')} />
+          <Lifecycle value={s('Lifecycle')} />
+          <span className="kit-muted">{s('MsgType')}</span>
         </div>
-        <button className="icon-btn" onClick={onClose} aria-label="Close message">
-          {'✕'}
-        </button>
+        <button className="kit-icon-btn" onClick={onClose} aria-label="Close message">{'✕'}</button>
       </header>
-      <h2 className="preview-subject">{s('Subject')}</h2>
-      <dl className="fields">
-        <dt>Reference</dt>
-        <dd>{s('Reference')}</dd>
-        <dt>DTG</dt>
-        <dd>{s('Dtg')}</dd>
-        <dt>From</dt>
-        <dd>{s('Originator')}</dd>
-        <dt>To</dt>
-        <dd>{s('ToLine')}</dd>
-        {s('InfoLine') && (
-          <>
-            <dt>Info</dt>
-            <dd>{s('InfoLine')}</dd>
-          </>
-        )}
-        {s('ReplacedBy') && (
-          <>
-            <dt>Replaced by</dt>
-            <dd>{s('ReplacedBy')}</dd>
-          </>
-        )}
+      <h2 className="an-preview-subject">{s('Subject')}</h2>
+      <dl className="an-fields">
+        <dt>Reference</dt><dd>{s('Reference')}</dd>
+        <dt>DTG</dt><dd>{s('Dtg')}</dd>
+        <dt>From</dt><dd>{s('Originator')}</dd>
+        <dt>To</dt><dd>{s('ToLine')}</dd>
+        {s('InfoLine') && (<><dt>Info</dt><dd>{s('InfoLine')}</dd></>)}
+        {s('ReplacedBy') && (<><dt>Replaced by</dt><dd>{s('ReplacedBy')}</dd></>)}
       </dl>
 
       {d.ackDue ? (
-        <div className="ack-panel">
+        <div className="kit-banner kit-banner-warn an-block">
           <div>
-            <strong>Acknowledgement required.</strong> <span className={due.overdue ? 'due overdue' : 'due'}>{due.text}</span>
+            <strong>Acknowledgement required.</strong> <span className={due.overdue ? 'an-due an-overdue' : 'an-due'}>{due.text}</span>
           </div>
-          <button className="btn" onClick={ack} disabled={busy}>
-            {busy ? 'Saving...' : 'Acknowledge'}
-          </button>
+          <button className="kit-btn" onClick={ack} disabled={busy}>{busy ? 'Saving...' : 'Acknowledge'}</button>
         </div>
       ) : d.ackOn ? (
-        <div className="ack-panel ack-done">You acknowledged this {fmtDate(d.ackOn)}.</div>
+        <div className="kit-banner kit-banner-ok an-block">You acknowledged this {fmtDate(d.ackOn)}.</div>
       ) : null}
 
       {s('ActionText') && (
-        <div className="action">
-          <strong>Action:</strong> {s('ActionText')} {s('ActionSuspense') && <span className="muted">(suspense {s('ActionSuspense')}, {s('ActionAssignedTo')})</span>}
+        <div className="an-action an-block">
+          <strong>Action:</strong> {s('ActionText')} {s('ActionSuspense') && <span className="kit-muted">(suspense {s('ActionSuspense')}, {s('ActionAssignedTo')})</span>}
         </div>
       )}
 
       {s('AiSummary') && (
-        <div className="ai-summary">
-          <div className="ai-label">Summary -- Not authoritative</div>
+        <div className="an-ai-summary">
+          <div className="an-ai-label">Summary -- Not authoritative</div>
           {s('AiSummary')}
         </div>
       )}
@@ -306,25 +273,21 @@ function MessageView({ id, toast, onChanged, onClose }: { id: number; toast: Toa
       <h3>Message</h3>
       {d.sections.length > 0 ? (
         d.sections.map((x) => (
-          <div key={x.SortOrder} className="section">
-            <h4>
-              {x.SortOrder}. {x.Heading}
-            </h4>
+          <div key={x.SortOrder} className="an-section">
+            <h4>{x.SortOrder}. {x.Heading}</h4>
             <p>{x.Body}</p>
           </div>
         ))
       ) : (
-        <p className="body-text">{s('BodyText')}</p>
+        <p className="an-body-text">{s('BodyText')}</p>
       )}
 
       {d.attachments.length > 0 && (
         <>
           <h3>Attachments</h3>
-          <ul className="attachments">
+          <ul className="an-plain-list">
             {d.attachments.map((a) => (
-              <li key={a.FileName}>
-                <span className="kind">{a.Kind.toUpperCase()}</span> {a.FileName} <span className="muted">{a.SizeText}</span>
-              </li>
+              <li key={a.FileName}><span className="an-kind">{a.Kind.toUpperCase()}</span> {a.FileName} <span className="kit-muted">{a.SizeText}</span></li>
             ))}
           </ul>
         </>
@@ -333,22 +296,20 @@ function MessageView({ id, toast, onChanged, onClose }: { id: number; toast: Toa
       {d.receipts.length > 0 && (
         <>
           <h3>Receipts from addressees</h3>
-          <ul className="receipts">
+          <ul className="an-plain-list">
             {d.receipts.map((r) => (
-              <li key={r.CommandName + r.ReceivedOn}>
-                {r.CommandName} <span className="muted">{fmtDate(r.ReceivedOn)}</span>
-              </li>
+              <li key={r.CommandName + r.ReceivedOn}>{r.CommandName} <span className="kit-muted">{fmtDate(r.ReceivedOn)}</span></li>
             ))}
           </ul>
         </>
       )}
 
-      <details className="official">
+      <details className="an-official">
         <summary>Official text</summary>
         <pre>{s('RawText').replace(/\\n/g, '\n')}</pre>
       </details>
 
-      <div className="integrity">
+      <div className="an-integrity">
         <span>Integrity</span> SHA-256 {s('Sha256') || 'not recorded'} {s('C2oixId') && <> &middot; {s('C2oixId')}</>}
       </div>
     </section>
@@ -367,42 +328,30 @@ export function AuditPage() {
   useEffect(load, [load]);
   if (err) return <Empty>{err}</Empty>;
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Audit</h1>
-        <p className="muted">Append-only and hash chained. Web and Access entries share one chain.</p>
-      </div>
+    <div className="kit-page">
+      <PageHead title="Audit">Append-only and hash chained. Web and Access entries share one chain.</PageHead>
       {!a ? (
         <Empty>Checking the chain...</Empty>
       ) : (
         <>
-          <div className={`chain ${a.chain.ok ? 'chain-ok' : 'chain-bad'}`}>
-            {a.chain.ok ? `Chain verified: all ${a.chain.checked} entries match.` : a.chain.problem}
-            <button className="btn btn-outline" onClick={load}>
-              Recompute
-            </button>
+          <div className={`kit-banner ${a.chain.ok ? 'kit-banner-ok' : 'kit-banner-bad'}`}>
+            <strong>{a.chain.ok ? `Chain verified: all ${a.chain.checked} entries match.` : a.chain.problem}</strong>
+            <button className="kit-btn kit-btn-outline" onClick={load}>Recompute</button>
           </div>
           <Card>
-            <div className="table-wrap">
-              <table className="grid">
+            <div className="kit-table-wrap">
+              <table className="kit-grid">
                 <thead>
-                  <tr>
-                    <th>When</th>
-                    <th>Who</th>
-                    <th>Action</th>
-                    <th>Resource</th>
-                    <th>Device</th>
-                    <th>Result</th>
-                  </tr>
+                  <tr><th>When</th><th>Who</th><th>Action</th><th>Resource</th><th>Device</th><th>Result</th></tr>
                 </thead>
                 <tbody>
                   {a.rows.map((r) => (
                     <tr key={r.AuditID} title={r.Details ?? ''}>
-                      <td className="nowrap">{fmtDate(r.LoggedAt)}</td>
+                      <td className="kit-nowrap">{fmtDate(r.LoggedAt)}</td>
                       <td>{r.UserName}</td>
                       <td>{r.Action}</td>
                       <td>{r.Resource}</td>
-                      <td className="nowrap">{r.Device}</td>
+                      <td className="kit-nowrap">{r.Device}</td>
                       <td>{r.Result}</td>
                     </tr>
                   ))}

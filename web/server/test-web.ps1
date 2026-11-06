@@ -52,7 +52,7 @@ try {
 
     $people = Api GET '/api/people'
     Check 'lists demo people' ($people.body.people.Count -gt 0) ("$($people.body.people.Count) people")
-    $as = @{ 'X-Anchor-As' = [string]$people.body.people[0].PersonID }
+    $as = @{ 'X-Kit-As' = [string]$people.body.people[0].PersonID }
 
     $sum = Api GET '/api/summary' $as
     Check 'summary' ($sum.status -eq 200 -and $sum.body.total -gt 0) ("total $($sum.body.total), unread $($sum.body.unread), ack due $($sum.body.ackDueCount)")
@@ -72,7 +72,7 @@ try {
         $noTok = Api POST "/api/messages/$($target.id)/ack" $as
         Check 'write without token refused' ($noTok.status -eq 403)
 
-        $h = @{ 'X-Anchor-As' = $as['X-Anchor-As']; 'X-Anchor-Csrf' = $csrf }
+        $h = @{ 'X-Kit-As' = $as['X-Kit-As']; 'X-Kit-Csrf' = $csrf }
         $ack = Api POST "/api/messages/$($target.id)/ack" $h
         Check 'acknowledge' ($ack.status -eq 200) $ack.raw
         $again = Api POST "/api/messages/$($target.id)/ack" $h

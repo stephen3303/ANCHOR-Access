@@ -43,7 +43,7 @@ http.createServer((req, res) => {
   const all = [...messages].sort((a, b) => b.ReceivedOn.localeCompare(a.ReceivedOn)).map(list);
   let m;
   if (u.pathname === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); return res.end(fs.readFileSync(path.join(here, '../dist/index.html'))); }
-  if (u.pathname === '/api/me') return send(res, 200, { me, csrf: 'mock', demoSignIn: false, server: 'MOCK', dataFile: 'ANCHOR_BE.accdb' });
+  if (u.pathname === '/api/me') return send(res, 200, { me, csrf: 'mock', demoSignIn: false, app: 'ANCHOR', server: 'MOCK', dataFile: 'ANCHOR_BE.accdb' });
   if (u.pathname === '/api/summary') {
     const ackDue = all.filter((x) => x.ackDue);
     return send(res, 200, { total: all.length, unread: all.filter((x) => x.readState === 'unread').length, ackDueCount: ackDue.length, ackDue, latest: all.slice(0, 8), commandName: 'Commander, Submarine Force Atlantic' });

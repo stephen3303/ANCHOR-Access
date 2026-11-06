@@ -9,11 +9,45 @@ keep working, and both front ends can be open at once.
  Browser (React, one HTML file)
       |  HTTP + JSON, Windows sign-in (Negotiate/NTLM)
       v
- web/server/AnchorWeb.ps1   (Windows PowerShell 5.1, on a Windows PC or server)
+ web/server/AnchorWeb.ps1 + AnchorApi.ps1 on kit/server/KitWeb.ps1   (Windows PowerShell 5.1)
       |  ACE OLE DB, parameterized SQL, transactions
       v
  ANCHOR_BE.accdb  <---- Access front end (ANCHOR.accdb) linked as today
 ```
+
+## Layout: kit core plus app module
+
+This prototype is meant to become the base for every kit app, so the generic
+part is kept apart from ANCHOR's:
+
+```
+web/
+  kit/                       shared, nothing ANCHOR-specific (see kit/README.md)
+    server/KitWeb.ps1        server core: sign-in, Access engine, security, routing
+    Start-KitWeb.ps1         per-PC launcher
+    ui/                      React shell, components, API client, base.css
+    ui/palettes.css          generated from access/tools/make_themes.py
+    tools/make_web_palettes.py
+  server/AnchorWeb.ps1       ANCHOR entry (about 20 lines)
+  server/AnchorApi.ps1       ANCHOR's profile rule and routes (copies of its VBA routines)
+  server/test-web.ps1        end-to-end check on a data file
+  ui/src/                    ANCHOR's pages, main.tsx (nav and routes), anchor.css
+  dist/index.html            the built UI (committed)
+  Start-AnchorWeb.cmd, anchor-web.config.example.json
+```
+
+### What moves into the kit repo
+
+- `web/kit/` as a whole becomes `access-modern-ui/web/`, versioned like the
+  Access kit (`KIT_WEB_VERSION.txt`), and each app copies it into `web/kit/`.
+- `make_web_palettes.py` reads the kit's own `tools/make_themes.py`, so a
+  palette added there reaches every web app on the next copy.
+- A template app folder (entry script, empty module, `main.tsx`, config
+  example, `.cmd`) so a new app starts from a copy.
+- Later, worth adding to the kit: a generic list/detail page component, a
+  generic audit-trail module for apps that use the same hash-chained audit
+  (today that logic is in `AnchorApi.ps1` because only ANCHOR has it), and
+  the test harness (`test-web.ps1` split into kit checks and app checks).
 
 ## Why it is built this way
 
@@ -66,13 +100,17 @@ This is the same split as the Access app today. Each PC gets this `web` folder
 - Localhost only: no firewall rule, no admin step, nothing reachable from the
   network.
 
-To set up a PC: copy the `web` folder (only `Start-AnchorWeb.cmd`,
-`Start-AnchorWeb.ps1`, `server\` and `dist\` are needed), copy
-`anchor-web.config.example.json` to `anchor-web.config.json` and set the two
-paths, then double-click `Start-AnchorWeb.cmd`. It starts the server hidden
-(picking the PowerShell that matches Office's bitness), waits for it, and opens
-the browser. Running it again just opens the browser. `Start-AnchorWeb.ps1 -Stop`
-stops it. The log is `%LOCALAPPDATA%\ANCHOR\web.log`.
+To set up a PC: copy the `web` folder (only `Start-AnchorWeb.cmd`, `kit\`,
+`server\` and `dist\` are needed), copy `anchor-web.config.example.json` to
+`anchor-web.config.json` and set the two paths, then double-click
+`Start-AnchorWeb.cmd`. It starts the server hidden (picking the PowerShell that
+matches Office's bitness), waits for it, and opens the browser. Running it again
+just opens the browser.
+`kit\Start-KitWeb.ps1 -Config anchor-web.config.json -Stop` stops it. The log
+is `%LOCALAPPDATA%\ANCHOR\web.log`.
+
+Tip: put the `web` folder itself on the share and give each PC a shortcut to
+its `Start-AnchorWeb.cmd`. Then one update reaches every PC.
 
 Each PC needs Access or the free Access Database Engine, and the person needs
 read/write rights on the share (the same as for the Access front end).
@@ -123,8 +161,10 @@ npm run build    # writes web/dist/index.html; commit it
 | Messages | list with search, precedence, unread and ack-due filters; message view with sections, attachments, receipts, official text, integrity | mark read (first open audited), Acknowledge |
 | Audit | last 200 entries, full chain verify (Recompute) | none |
 
+Every page also has the Palette picker (8 kit palettes).
+
 API (all JSON): `GET /api/me`, `GET /api/summary`, `GET /api/messages?q=&precedence=&unread=1&ackDue=1`,
-`GET /api/messages/{id}`, `POST /api/messages/{id}/ack`, `GET /api/audit`, and with `-DemoSignIn` `GET /api/people`.
+`GET /api/messages/{id}`, `POST /api/messages/{id}/ack`, `GET /api/audit` (ANCHOR), plus the kit's `GET /api/me` and, with `-DemoSignIn`, `GET /api/people`.
 
 ## Limits to know before going further
 
@@ -140,6 +180,9 @@ API (all JSON): `GET /api/me`, `GET /api/summary`, `GET /api/messages?q=&precede
   port directly to a small C# service (one .exe, Windows sign-in, OLE DB).
 - **The data file's network share** must be reachable by the account that runs
   the server, with the same read/write rights the Access front end needs.
+- **Palette switching.** The sidebar's Palette list has the same palettes as
+  the Access apps (generated from `make_themes.py`); the choice is kept per
+  browser.
 - **Business rules live in two places** (VBA and the server) for the actions
   the web does. Keep each web write a line-for-line copy of its VBA routine and
   name that routine in a comment, as the prototype does.
