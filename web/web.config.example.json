@@ -1,9 +1,0 @@
-{
-  "title": "Navy Apps",
-  "personnel": "S:\\Apps\\Personnel\\Personnel_be.accdb",
-  "port": 8787,
-  "apps": [
-    { "key": "anchor",  "name": "ANCHOR",         "dataFile": "S:\\Apps\\ANCHOR\\ANCHOR_BE.accdb",   "module": "apps\\anchor\\api.ps1" },
-    { "key": "examgen", "name": "Exam Generator", "dataFile": "S:\\Apps\\ExamGen\\ExamGen_BE.accdb", "module": "apps\\examgen\\api.ps1" }
-  ]
-}
