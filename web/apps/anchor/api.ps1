@@ -158,7 +158,14 @@ Add-KitRoute GET '^/messages/(\d{1,9})$' {
     $rows = Invoke-KitQuery $conn 'SELECT * FROM tblMessages WHERE MessageID=?' @($id)
     if ($rows.Count -eq 0) { $r.Json(404, @{ error = 'No such message.' }); return }
     $m = $rows[0]
-    Set-AnchorMessageRead $conn $r.Me $id ([string]$m.Reference) ([string]$m.Classification)
+    if ($r.App.Bridge) {
+        # Bridge spike: modMessages.MarkRead itself, in the hidden Access.
+        # Like the Access app's AuditTry, a failed view record doesn't stop the page.
+        $br = Invoke-KitBridge $r.App 'WebMarkRead' @($r.Me.personId, $r.Me.username, $id)
+        if (-not $br.ok) { Write-Warning "bridge WebMarkRead: $($br.kind) $($br.errNumber) $($br.message)" }
+    } else {
+        Set-AnchorMessageRead $conn $r.Me $id ([string]$m.Reference) ([string]$m.Classification)
+    }
     $src = Get-AnchorSetting $conn 'CommandSource' 'COMSUBLANT'
     $state = Invoke-KitQuery $conn "SELECT AckOn FROM tblMessageUserState WHERE MessageID=? AND PersonID=$($r.Me.personId)" @($id)
     $ackOn = $null; if ($state.Count -gt 0) { $ackOn = $state[0].AckOn }
@@ -179,6 +186,15 @@ Add-KitRoute POST '^/messages/(\d{1,9})/ack$' {
     param($r)
     $id = [int]$r.Matches.Groups[1].Value
     $conn = $r.Conn; $me = $r.Me
+    if ($r.App.Bridge) {
+        # Bridge spike: modMessages.Acknowledge itself, in the hidden Access.
+        # Its error 5 is "doesn't need your acknowledgement"; 70 is no access.
+        $br = Invoke-KitBridge $r.App 'WebAcknowledge' @($me.personId, $me.username, $id)
+        $status = 500
+        if ($br.ok) { $status = 200 } elseif ($br.kind -eq 'result' -and $br.errNumber -eq 5) { $status = 409 } elseif ($br.kind -eq 'result' -and $br.errNumber -eq 70) { $status = 403 }
+        $r.Json($status, @{ ok = $br.ok; error = $br.message; bridge = $br })
+        return
+    }
     $src = Get-AnchorSetting $conn 'CommandSource' 'COMSUBLANT'
     $result = Use-KitTransaction $conn {
         param($tx)
@@ -215,4 +231,28 @@ Set-KitOnStart {
     param($conn)
     $n = Use-KitTransaction $conn { param($tx) Invoke-AnchorAuditSeal $conn $tx }
     if ($n) { Write-Host "ANCHOR: sealed $n audit row(s) that were waiting." }
+}
+
+# ---------------------------------------------------------------- bridge spike
+# Present only when web.config.json gives ANCHOR a "bridge". Read-only status
+# and modAudit.AuditVerify run through the hidden Access; the fault-injection
+# routes exist only with "tests": true.
+if ($Kit.Current.Bridge) {
+    Add-KitRoute GET '^/bridge/status$' {
+        param($r)
+        $r.Json(200, (Get-KitBridgeStatus $r.App))
+    }
+    Add-KitRoute GET '^/bridge/verify$' {
+        param($r)
+        $r.Json(200, @{ access = (Invoke-KitBridge $r.App 'WebAuditVerify'); web = (Test-AnchorAuditChain $r.Conn) })
+    }
+    if ($Kit.Current.Bridge.Tests) {
+        Add-KitRoute POST '^/bridge/test/(ping|trapped|untrapped|msgbox|dialog|slow)$' {
+            param($r)
+            $name = @{ ping = 'WebPing'; trapped = 'WebTestTrapped'; untrapped = 'WebTestUntrapped'; msgbox = 'WebTestMsgBox'; dialog = 'WebTestAccessDialog'; slow = 'WebTestSlow' }[$r.Matches.Groups[1].Value]
+            $callArgs = @(); if ($name -eq 'WebTestSlow') { $callArgs = @([int]($r.App.Bridge.TimeoutSec * 3)) }
+            $br = Invoke-KitBridge $r.App $name $callArgs
+            $r.Json(200, @{ result = $br; status = (Get-KitBridgeStatus $r.App) })
+        }
+    }
 }

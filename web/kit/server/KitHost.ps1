@@ -19,6 +19,9 @@ Settings (paths may be relative to the settings file):
   -Port      overrides the settings file's port
   -Lan       also answer other PCs (admin: netsh http add urlacl url=http://+:8787/ user=<account>; firewall rule)
   -LogFile   write the server's output there (the launcher uses it)
+
+An app entry may also carry "bridge": {...} to run its writes through its own
+VBA in a hidden Access instance (spike; see KitBridge.ps1).
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Config,
@@ -46,8 +49,25 @@ Initialize-KitWeb -Title $title -Personnel $personnel -Port $Port -Lan:$Lan -Dem
 # Each module is dot-sourced here, at script level, so the functions it
 # defines stay available to its routes. Module functions share one scope:
 # prefix them with the app's name (Get-AnchorSetting, not Get-Setting).
+$bridged = @($cfg.apps | Where-Object { $_.bridge })
+if ($bridged.Count) { . (Join-Path $kitServer 'KitBridge.ps1') }
 foreach ($a in $cfg.apps) {
     Use-KitApp -Key $a.key -Name $a.name -DataFile (Get-ConfigPath $a.dataFile)
+    if ($a.bridge) {
+        $t = 10; if ($a.bridge.timeoutSec) { $t = [int]$a.bridge.timeoutSec }
+        Use-KitBridge -LogicFile (Get-ConfigPath $a.bridge.logic) -Runtime ([bool]$a.bridge.runtime) -TimeoutSec $t -Tests ([bool]$a.bridge.tests)
+    }
     . (Get-ConfigPath $a.module)
 }
-Start-KitWeb
+try {
+    # Hidden Access for apps that use the bridge (spike), started before the
+    # first request so the first click isn't the slow one.
+    foreach ($app in $Kit.Apps.Values) {
+        if ($app.Bridge -and -not $app.Error) {
+            try { Start-KitBridge $app } catch { Write-Warning "$($app.Key) bridge: $($_.Exception.Message)" }
+        }
+    }
+    Start-KitWeb
+} finally {
+    foreach ($app in $Kit.Apps.Values) { if ($app.Bridge) { Stop-KitBridge $app } }
+}

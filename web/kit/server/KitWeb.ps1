@@ -65,7 +65,7 @@ function Use-KitApp([string]$Key, [string]$Name, [string]$DataFile) {
     if ($Key -notmatch '^[a-z][a-z0-9-]{0,30}$') { throw "App key '$Key': use lower-case letters, digits and dashes." }
     if ($Kit.Apps.Contains($Key)) { throw "App key '$Key' is listed twice." }
     $app = @{ Key = $Key; Name = $Name; DataFile = (Resolve-KitPath $DataFile); Routes = New-Object System.Collections.Generic.List[object]
-              ResolveProfile = $null; ListPeople = $null; OnStart = $null; Error = '' }
+              ResolveProfile = $null; ListPeople = $null; OnStart = $null; Bridge = $null; Error = '' }
     if (-not (Test-Path $app.DataFile)) { $app.Error = "Can't reach its data file ($($app.DataFile))." }
     elseif (-not $Kit.Provider) {
         try { $Kit.Provider = Find-KitAceProvider $app.DataFile } catch { throw }
